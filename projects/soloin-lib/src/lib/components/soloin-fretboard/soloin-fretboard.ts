@@ -49,6 +49,8 @@ const POSITION_MARKERS = [
   { cx: dotX(12), cy: CENTER_Y + STR_H / 2 },
 ];
 
+export const FRETBOARD_FONT = "'Segoe UI', Roboto, system-ui, -apple-system, sans-serif";
+
 @Component({
   selector: 'soloin-fretboard',
   templateUrl: './soloin-fretboard.html',
@@ -62,6 +64,7 @@ export class SoloinFretboard {
 
   readonly svgRef = viewChild.required<ElementRef<SVGSVGElement>>('svg');
 
+  readonly fontFamily = FRETBOARD_FONT;
   readonly viewBox = `0 0 ${SVG_W} ${SVG_H}`;
   readonly stringLabelX = ML - 6;
   readonly stringLineX2 = W;
@@ -99,7 +102,7 @@ export class SoloinFretboard {
             out.push({ x, y, r: 13 - i * 4, colorVar: layer.colorVar, label: i === 0 ? noteName(pc, flats) : '' });
           });
         } else if (scale.has(pc)) {
-          out.push({ x, y, r: 7, colorVar: '--_chords-scale-note', label: '' });
+          out.push({ x, y, r: 10, colorVar: '--_chords-scale-note', label: noteName(pc, flats) });
         }
       }
     });

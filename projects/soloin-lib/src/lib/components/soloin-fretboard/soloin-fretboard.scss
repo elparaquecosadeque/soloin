@@ -6,8 +6,8 @@
   --_chords-text: var(--chords-text, #1e293b);
   --_chords-muted: var(--chords-muted, #64748b);
   --_chords-on-primary: var(--chords-on-primary, #ffffff);
-  --_chords-scale-note: var(--chords-scale-note, color-mix(in srgb, var(--_chords-muted) 45%, transparent));
   --_chords-chord-color-1: var(--chords-chord-color-1, var(--chords-primary, #3b82f6));
+  --_chords-scale-note: var(--chords-scale-note, color-mix(in srgb, var(--_chords-muted) 55%, var(--_chords-chord-color-1)));
   --_chords-chord-color-2: var(--chords-chord-color-2, var(--chords-secondary, #06b6d4));
   --_chords-chord-color-3: var(--chords-chord-color-3, var(--chords-highlight, #f59e0b));
   --_chords-chord-color-4: var(--chords-chord-color-4, var(--chords-danger, #a855f7));
@@ -28,21 +28,10 @@
   height: auto;
 }
 
-.string-label {
-  font-size: 13px;
-  font-weight: 600;
-  fill: var(--_chords-muted);
-}
-
-.fret-num {
-  font-size: 12px;
-  fill: var(--_chords-muted);
-}
-
+// Font, size, weight, and fill for .string-label/.fret-num/.dot-label are set as
+// inline SVG presentation attributes in the template (not here) so PNG/PDF export
+// — which clones and serializes the SVG outside this component's stylesheet —
+// renders identically to the live view instead of falling back to browser defaults.
 .dot-label {
-  font-size: 11px;
-  font-weight: 800;
-  fill: var(--_chords-on-primary);
-  dominant-baseline: central;
   pointer-events: none;
 }

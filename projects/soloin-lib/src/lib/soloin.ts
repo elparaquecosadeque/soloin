@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, input, signal, viewChild } from '@angular/core';
+import { Component, computed, input, signal, viewChildren } from '@angular/core';
 import {
   buildChordTones,
   buildScale,
@@ -31,8 +31,14 @@ interface CopyText {
   detectedKey: (keyLabel: string) => string;
   noKeyDetected: string;
   legendLabel: string;
+  mosaicView: string;
+  carouselView: string;
+  previous: string;
+  next: string;
+  chordOf: (index: number, total: number) => string;
   exportPng: string;
   exportPdf: string;
+  exportUnavailable: string;
   copyText: string;
   copied: string;
 }
@@ -82,8 +88,14 @@ const COPY: Record<Language, CopyText> = {
     detectedKey: (keyLabel) => `Detected key: ${keyLabel}`,
     noKeyDetected: 'No key detected yet — enter at least one recognizable chord.',
     legendLabel: 'Chord tones',
+    mosaicView: 'Mosaic',
+    carouselView: 'Carousel',
+    previous: 'Previous',
+    next: 'Next',
+    chordOf: (index, total) => `Chord ${index} of ${total}`,
     exportPng: 'Export PNG',
     exportPdf: 'Export PDF',
+    exportUnavailable: 'Switch to Carousel to export an image',
     copyText: 'Copy as text',
     copied: 'Copied!',
   },
@@ -113,8 +125,14 @@ const COPY: Record<Language, CopyText> = {
     detectedKey: (keyLabel) => `Tonalidad detectada: ${keyLabel}`,
     noKeyDetected: 'Aún no se detecta ninguna tonalidad — introduce al menos un acorde reconocible.',
     legendLabel: 'Notas de los acordes',
+    mosaicView: 'Mosaico',
+    carouselView: 'Carrusel',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    chordOf: (index, total) => `Acorde ${index} de ${total}`,
     exportPng: 'Exportar PNG',
     exportPdf: 'Exportar PDF',
+    exportUnavailable: 'Cambia a Carrusel para exportar una imagen',
     copyText: 'Copiar como texto',
     copied: '¡Copiado!',
   },
@@ -140,7 +158,14 @@ export class SoloinComponent {
   readonly scaleOverride = signal<ScaleName | null>(null);
   readonly copied = signal(false);
 
-  readonly fretboard = viewChild.required(SoloinFretboard);
+  readonly chordView = signal<'mosaic' | 'carousel'>('mosaic');
+  readonly carouselIndex = signal(0);
+
+  // viewChildren, not viewChild: mosaic view renders one <soloin-fretboard>
+  // per chord. Export always targets the first rendered board, which is the
+  // only one in key mode and in carousel mode (mosaic disables export instead
+  // of guessing which of several boards the user meant — see canExportImage).
+  private readonly fretboards = viewChildren(SoloinFretboard);
 
   private readonly chordTokens = computed(() =>
     this.progressionInput()
@@ -187,6 +212,19 @@ export class SoloinComponent {
     return key ? this.keyLabel(key) : null;
   });
 
+  readonly activeChordLayer = computed<ChordLayer | null>(() => {
+    const layers = this.chordLayers();
+    if (layers.length === 0) return null;
+    return layers[Math.min(this.carouselIndex(), layers.length - 1)];
+  });
+
+  // Image export needs exactly one unambiguous fretboard on screen: always
+  // true in key mode (single overview board) and in progression mode once
+  // either there are no chords yet or the carousel view is showing just one.
+  readonly canExportImage = computed(
+    () => this.mode() !== 'progression' || this.chordView() === 'carousel' || this.chordLayers().length === 0,
+  );
+
   keyLabel(key: Key): string {
     const t = this.text();
     return `${noteName(key.root)} ${key.mode === 'major' ? t.major : t.minor}`;
@@ -194,6 +232,15 @@ export class SoloinComponent {
 
   setMode(mode: InputMode): void {
     this.mode.set(mode);
+  }
+
+  setChordView(view: 'mosaic' | 'carousel'): void {
+    this.chordView.set(view);
+  }
+
+  stepCarousel(delta: number): void {
+    const max = this.chordLayers().length - 1;
+    this.carouselIndex.update((i) => Math.max(0, Math.min(max, i + delta)));
   }
 
   onProgressionInput(event: Event): void {
@@ -226,13 +273,28 @@ export class SoloinComponent {
     setTimeout(() => this.copied.set(false), 2000);
   }
 
+  private exportTitle(): string {
+    const t = this.text();
+    const key = this.activeKey();
+    const keyPart = key ? this.keyLabel(key) : '?';
+    const scalePart = t.scaleNames[this.effectiveScale()];
+    const chord = this.chordView() === 'carousel' ? this.activeChordLayer() : null;
+    return chord ? `${t.title} — ${chord.label} — ${keyPart} · ${scalePart}` : `${t.title} — ${keyPart} · ${scalePart}`;
+  }
+
   async exportPng(): Promise<void> {
+    if (!this.canExportImage()) return;
+    const svgEl = this.fretboards()[0]?.svgRef().nativeElement;
+    if (!svgEl) return;
     const { downloadPng } = await import('./export/rasterize');
-    await downloadPng(this.fretboard().svgRef().nativeElement, 'soloin.png');
+    await downloadPng(svgEl, 'soloin.png', this.exportTitle());
   }
 
   async exportPdf(): Promise<void> {
+    if (!this.canExportImage()) return;
+    const svgEl = this.fretboards()[0]?.svgRef().nativeElement;
+    if (!svgEl) return;
     const { openPdfPreview } = await import('./export/rasterize');
-    await openPdfPreview(this.fretboard().svgRef().nativeElement, this.text().title);
+    await openPdfPreview(svgEl, this.exportTitle());
   }
 }

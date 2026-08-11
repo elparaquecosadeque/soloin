@@ -23,19 +23,47 @@
     <!-- strings -->
     @for (s of strings; track $index) {
       <line [attr.x1]="nutX" [attr.y1]="s.y" [attr.x2]="stringLineX2" [attr.y2]="s.y" stroke="var(--_chords-string)" stroke-width="2" />
-      <text [attr.x]="stringLabelX" [attr.y]="s.y + 5" class="string-label" text-anchor="end">{{ s.label }}</text>
+      <text
+        [attr.x]="stringLabelX"
+        [attr.y]="s.y"
+        class="string-label"
+        text-anchor="end"
+        dominant-baseline="central"
+        [attr.font-family]="fontFamily"
+        font-size="13"
+        font-weight="600"
+        fill="var(--_chords-muted)"
+      >{{ s.label }}</text>
     }
 
     <!-- fret numbers -->
     @for (fn of fretNumbers; track fn.label) {
-      <text [attr.x]="fn.x" [attr.y]="fretNumY" class="fret-num" text-anchor="middle">{{ fn.label }}</text>
+      <text
+        [attr.x]="fn.x"
+        [attr.y]="fretNumY"
+        class="fret-num"
+        text-anchor="middle"
+        [attr.font-family]="fontFamily"
+        font-size="12"
+        fill="var(--_chords-muted)"
+      >{{ fn.label }}</text>
     }
 
     <!-- notes -->
     @for (dot of dots(); track dot.x + '-' + dot.y + '-' + dot.colorVar) {
       <circle [attr.cx]="dot.x" [attr.cy]="dot.y" [attr.r]="dot.r" [attr.fill]="'var(' + dot.colorVar + ')'" />
       @if (dot.label) {
-        <text [attr.x]="dot.x" [attr.y]="dot.y + 4" class="dot-label" text-anchor="middle">{{ dot.label }}</text>
+        <text
+          [attr.x]="dot.x"
+          [attr.y]="dot.y"
+          class="dot-label"
+          text-anchor="middle"
+          dominant-baseline="central"
+          [attr.font-family]="fontFamily"
+          font-size="11"
+          font-weight="800"
+          fill="var(--_chords-on-primary)"
+        >{{ dot.label }}</text>
       }
     }
   </svg>

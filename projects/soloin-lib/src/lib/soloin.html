@@ -62,7 +62,58 @@
     </select>
   </div>
 
-  <soloin-fretboard [scaleNotes]="scaleNotes()" [chordLayers]="chordLayers()" />
+  @if (mode() !== 'progression' || chordLayers().length === 0) {
+    <soloin-fretboard [scaleNotes]="scaleNotes()" [chordLayers]="[]" />
+  } @else {
+    <div class="view-toggle" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="chordView() === 'mosaic'"
+        [class.active]="chordView() === 'mosaic'"
+        (click)="setChordView('mosaic')"
+      >
+        {{ text().mosaicView }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="chordView() === 'carousel'"
+        [class.active]="chordView() === 'carousel'"
+        (click)="setChordView('carousel')"
+      >
+        {{ text().carouselView }}
+      </button>
+    </div>
+
+    @if (chordView() === 'mosaic') {
+      <div class="mosaic">
+        @for (layer of chordLayers(); track layer.label + layer.colorVar) {
+          <div class="mosaic-tile">
+            <div class="mosaic-tile-label" [style.color]="'var(' + layer.colorVar + ')'">{{ layer.label }}</div>
+            <soloin-fretboard [scaleNotes]="scaleNotes()" [chordLayers]="[layer]" [ariaLabel]="layer.label" />
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="carousel">
+        <div class="carousel-nav">
+          <button type="button" (click)="stepCarousel(-1)" [disabled]="carouselIndex() === 0">‹ {{ text().previous }}</button>
+          <span class="carousel-label">
+            {{ activeChordLayer()?.label }} · {{ text().chordOf(carouselIndex() + 1, chordLayers().length) }}
+          </span>
+          <button type="button" (click)="stepCarousel(1)" [disabled]="carouselIndex() === chordLayers().length - 1">
+            {{ text().next }} ›
+          </button>
+        </div>
+        <soloin-fretboard
+          [scaleNotes]="scaleNotes()"
+          [chordLayers]="activeChordLayer() ? [activeChordLayer()!] : []"
+          [ariaLabel]="activeChordLayer()?.label ?? ''"
+        />
+      </div>
+    }
+  }
 
   @if (chordLayers().length > 0) {
     <div class="legend" role="list" [attr.aria-label]="text().legendLabel">
@@ -76,8 +127,12 @@
   }
 
   <div class="actions">
-    <button type="button" (click)="exportPng()">{{ text().exportPng }}</button>
-    <button type="button" (click)="exportPdf()">{{ text().exportPdf }}</button>
+    <button type="button" (click)="exportPng()" [disabled]="!canExportImage()" [title]="canExportImage() ? '' : text().exportUnavailable">
+      {{ text().exportPng }}
+    </button>
+    <button type="button" (click)="exportPdf()" [disabled]="!canExportImage()" [title]="canExportImage() ? '' : text().exportUnavailable">
+      {{ text().exportPdf }}
+    </button>
     <button type="button" (click)="copyAsText()">{{ copied() ? text().copied : text().copyText }}</button>
   </div>
 </div>
