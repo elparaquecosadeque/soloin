@@ -1,0 +1,48 @@
+:host {
+  --_chords-nut: var(--chords-nut, #334155);
+  --_chords-string: var(--chords-string, rgba(71, 85, 105, 0.75));
+  --_chords-fret: var(--chords-fret, rgba(100, 116, 139, 0.5));
+  --_chords-marker: var(--chords-marker, rgba(148, 163, 184, 0.3));
+  --_chords-text: var(--chords-text, #1e293b);
+  --_chords-muted: var(--chords-muted, #64748b);
+  --_chords-on-primary: var(--chords-on-primary, #ffffff);
+  --_chords-scale-note: var(--chords-scale-note, color-mix(in srgb, var(--_chords-muted) 45%, transparent));
+  --_chords-chord-color-1: var(--chords-chord-color-1, var(--chords-primary, #3b82f6));
+  --_chords-chord-color-2: var(--chords-chord-color-2, var(--chords-secondary, #06b6d4));
+  --_chords-chord-color-3: var(--chords-chord-color-3, var(--chords-highlight, #f59e0b));
+  --_chords-chord-color-4: var(--chords-chord-color-4, var(--chords-danger, #a855f7));
+  --_chords-chord-color-5: var(--chords-chord-color-5, #84cc16);
+  --_chords-chord-color-6: var(--chords-chord-color-6, #a78bfa);
+
+  display: block;
+}
+
+.fretboard-scroll {
+  overflow-x: auto;
+}
+
+.fretboard {
+  display: block;
+  width: 100%;
+  min-width: 640px;
+  height: auto;
+}
+
+.string-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--_chords-muted);
+}
+
+.fret-num {
+  font-size: 12px;
+  fill: var(--_chords-muted);
+}
+
+.dot-label {
+  font-size: 11px;
+  font-weight: 800;
+  fill: var(--_chords-on-primary);
+  dominant-baseline: central;
+  pointer-events: none;
+}

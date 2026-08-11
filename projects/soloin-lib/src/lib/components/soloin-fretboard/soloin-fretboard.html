@@ -1,0 +1,42 @@
+<div class="fretboard-scroll">
+  <svg #svg class="fretboard" role="img" [attr.aria-label]="ariaLabel()" [attr.viewBox]="viewBox">
+    <!-- nut -->
+    <rect [attr.x]="nutX" [attr.y]="stringY1" width="6" [attr.height]="stringY2 - stringY1" fill="var(--_chords-nut)" />
+
+    <!-- fret lines -->
+    @for (fl of fretLines; track fl.x) {
+      <line
+        [attr.x1]="fl.x"
+        [attr.y1]="stringY1"
+        [attr.x2]="fl.x"
+        [attr.y2]="stringY2"
+        [attr.stroke]="fl.isNut ? 'var(--_chords-nut)' : 'var(--_chords-fret)'"
+        [attr.stroke-width]="fl.isNut ? 4 : 1.5"
+      />
+    }
+
+    <!-- position markers -->
+    @for (m of positionMarkers; track $index) {
+      <circle [attr.cx]="m.cx" [attr.cy]="m.cy" r="6" fill="var(--_chords-marker)" />
+    }
+
+    <!-- strings -->
+    @for (s of strings; track $index) {
+      <line [attr.x1]="nutX" [attr.y1]="s.y" [attr.x2]="stringLineX2" [attr.y2]="s.y" stroke="var(--_chords-string)" stroke-width="2" />
+      <text [attr.x]="stringLabelX" [attr.y]="s.y + 5" class="string-label" text-anchor="end">{{ s.label }}</text>
+    }
+
+    <!-- fret numbers -->
+    @for (fn of fretNumbers; track fn.label) {
+      <text [attr.x]="fn.x" [attr.y]="fretNumY" class="fret-num" text-anchor="middle">{{ fn.label }}</text>
+    }
+
+    <!-- notes -->
+    @for (dot of dots(); track dot.x + '-' + dot.y + '-' + dot.colorVar) {
+      <circle [attr.cx]="dot.x" [attr.cy]="dot.y" [attr.r]="dot.r" [attr.fill]="'var(' + dot.colorVar + ')'" />
+      @if (dot.label) {
+        <text [attr.x]="dot.x" [attr.y]="dot.y + 4" class="dot-label" text-anchor="middle">{{ dot.label }}</text>
+      }
+    }
+  </svg>
+</div>

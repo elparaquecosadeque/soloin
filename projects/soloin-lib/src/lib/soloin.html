@@ -1,0 +1,83 @@
+<div class="soloin">
+  <header class="header">
+    <h2 class="title">{{ text().title }}</h2>
+    <p class="subtitle">{{ text().subtitle }}</p>
+  </header>
+
+  <div class="mode-toggle" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="mode() === 'progression'"
+      [class.active]="mode() === 'progression'"
+      (click)="setMode('progression')"
+    >
+      {{ text().progressionModeLabel }}
+    </button>
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="mode() === 'key'"
+      [class.active]="mode() === 'key'"
+      (click)="setMode('key')"
+    >
+      {{ text().keyModeLabel }}
+    </button>
+  </div>
+
+  @if (mode() === 'progression') {
+    <div class="control">
+      <label class="control-label" for="soloin-progression">{{ text().progressionLabel }}</label>
+      <input
+        id="soloin-progression"
+        class="text-input"
+        type="text"
+        [value]="progressionInput()"
+        (input)="onProgressionInput($event)"
+        [placeholder]="text().placeholder"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+    <p class="key-readout">
+      {{ detectedKeyLabel() ? text().detectedKey(detectedKeyLabel()!) : text().noKeyDetected }}
+    </p>
+  } @else {
+    <div class="control">
+      <label class="control-label" for="soloin-key">{{ text().keyLabel }}</label>
+      <select id="soloin-key" class="select-input" (change)="onKeyChange($event)">
+        @for (key of allKeys; track key.root + key.mode; let i = $index) {
+          <option [value]="i">{{ keyLabel(key) }}</option>
+        }
+      </select>
+    </div>
+  }
+
+  <div class="control">
+    <label class="control-label" for="soloin-scale">{{ text().scaleLabel }}</label>
+    <select id="soloin-scale" class="select-input" [value]="effectiveScale()" (change)="onScaleChange($event)">
+      @for (scale of scaleOrder; track scale) {
+        <option [value]="scale">{{ text().scaleNames[scale] }}</option>
+      }
+    </select>
+  </div>
+
+  <soloin-fretboard [scaleNotes]="scaleNotes()" [chordLayers]="chordLayers()" />
+
+  @if (chordLayers().length > 0) {
+    <div class="legend" role="list" [attr.aria-label]="text().legendLabel">
+      @for (layer of chordLayers(); track layer.label + layer.colorVar) {
+        <span class="legend-item" role="listitem">
+          <span class="legend-dot" [style.background]="'var(' + layer.colorVar + ')'" aria-hidden="true"></span>
+          <span>{{ layer.label }}</span>
+        </span>
+      }
+    </div>
+  }
+
+  <div class="actions">
+    <button type="button" (click)="exportPng()">{{ text().exportPng }}</button>
+    <button type="button" (click)="exportPdf()">{{ text().exportPdf }}</button>
+    <button type="button" (click)="copyAsText()">{{ copied() ? text().copied : text().copyText }}</button>
+  </div>
+</div>
