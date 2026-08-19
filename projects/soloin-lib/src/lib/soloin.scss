@@ -109,6 +109,21 @@
   color: var(--_chords-muted);
 }
 
+.scale-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--_chords-muted);
+  cursor: pointer;
+
+  input {
+    cursor: pointer;
+  }
+}
+
 .mosaic {
   display: flex;
   flex-direction: column;

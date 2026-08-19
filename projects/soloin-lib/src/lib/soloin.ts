@@ -33,6 +33,7 @@ interface CopyText {
   legendLabel: string;
   mosaicView: string;
   carouselView: string;
+  showScaleNotes: string;
   previous: string;
   next: string;
   chordOf: (index: number, total: number) => string;
@@ -90,6 +91,7 @@ const COPY: Record<Language, CopyText> = {
     legendLabel: 'Chord tones',
     mosaicView: 'Mosaic',
     carouselView: 'Carousel',
+    showScaleNotes: 'Show key notes',
     previous: 'Previous',
     next: 'Next',
     chordOf: (index, total) => `Chord ${index} of ${total}`,
@@ -127,6 +129,7 @@ const COPY: Record<Language, CopyText> = {
     legendLabel: 'Notas de los acordes',
     mosaicView: 'Mosaico',
     carouselView: 'Carrusel',
+    showScaleNotes: 'Mostrar notas de la tonalidad',
     previous: 'Anterior',
     next: 'Siguiente',
     chordOf: (index, total) => `Acorde ${index} de ${total}`,
@@ -160,6 +163,11 @@ export class SoloinComponent {
 
   readonly chordView = signal<'mosaic' | 'carousel'>('mosaic');
   readonly carouselIndex = signal(0);
+  // Off by default: a chord's own tones are what "belongs" to it. The scale
+  // backdrop is the surrounding progression's overall key, shared across every
+  // chord tile — showing it by default made it look like part of the chord
+  // itself (see HANDOFF.md gotchas), so it's opt-in instead.
+  readonly showScaleNotes = signal(false);
 
   // viewChildren, not viewChild: mosaic view renders one <soloin-fretboard>
   // per chord. Export always targets the first rendered board, which is the
@@ -236,6 +244,10 @@ export class SoloinComponent {
 
   setChordView(view: 'mosaic' | 'carousel'): void {
     this.chordView.set(view);
+  }
+
+  toggleScaleNotes(event: Event): void {
+    this.showScaleNotes.set((event.target as HTMLInputElement).checked);
   }
 
   stepCarousel(delta: number): void {

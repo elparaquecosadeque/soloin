@@ -86,12 +86,17 @@
       </button>
     </div>
 
+    <label class="scale-toggle">
+      <input type="checkbox" [checked]="showScaleNotes()" (change)="toggleScaleNotes($event)" />
+      {{ text().showScaleNotes }}
+    </label>
+
     @if (chordView() === 'mosaic') {
       <div class="mosaic">
         @for (layer of chordLayers(); track layer.label + layer.colorVar) {
           <div class="mosaic-tile">
             <div class="mosaic-tile-label" [style.color]="'var(' + layer.colorVar + ')'">{{ layer.label }}</div>
-            <soloin-fretboard [scaleNotes]="scaleNotes()" [chordLayers]="[layer]" [ariaLabel]="layer.label" />
+            <soloin-fretboard [scaleNotes]="showScaleNotes() ? scaleNotes() : []" [chordLayers]="[layer]" [ariaLabel]="layer.label" />
           </div>
         }
       </div>
@@ -107,7 +112,7 @@
           </button>
         </div>
         <soloin-fretboard
-          [scaleNotes]="scaleNotes()"
+          [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
           [chordLayers]="activeChordLayer() ? [activeChordLayer()!] : []"
           [ariaLabel]="activeChordLayer()?.label ?? ''"
         />
