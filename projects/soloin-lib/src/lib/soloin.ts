@@ -5,6 +5,7 @@ import {
   CHORD_DEGREE_LABELS,
   type ChordQuality,
   detectKey,
+  isDiatonic,
   type Key,
   type Note,
   noteName,
@@ -38,6 +39,7 @@ interface CopyText {
   detectedKey: (keyLabel: string) => string;
   noKeyDetected: string;
   unrecognizedChord: (raw: string, suggestion: string | null) => string;
+  nonDiatonicBadge: string;
   legendLabel: string;
   mosaicView: string;
   carouselView: string;
@@ -104,6 +106,7 @@ const COPY: Record<Language, CopyText> = {
     noKeyDetected: 'No key detected yet — enter at least one recognizable chord.',
     unrecognizedChord: (raw, suggestion) =>
       suggestion ? `"${raw}" not recognized — did you mean "${suggestion}"?` : `"${raw}" not recognized`,
+    nonDiatonicBadge: 'non-diatonic',
     legendLabel: 'Chord tones',
     mosaicView: 'Mosaic',
     carouselView: 'Carousel',
@@ -150,6 +153,7 @@ const COPY: Record<Language, CopyText> = {
     noKeyDetected: 'Aún no se detecta ninguna tonalidad — introduce al menos un acorde reconocible.',
     unrecognizedChord: (raw, suggestion) =>
       suggestion ? `"${raw}" no reconocido — ¿quisiste decir "${suggestion}"?` : `"${raw}" no reconocido`,
+    nonDiatonicBadge: 'no diatónico',
     legendLabel: 'Notas de los acordes',
     mosaicView: 'Mosaico',
     carouselView: 'Carrusel',
@@ -265,6 +269,7 @@ export class SoloinComponent {
 
   readonly chordLayers = computed<ChordLayer[]>(() => {
     if (this.mode() !== 'progression') return [];
+    const key = this.activeKey();
     const slots = new Map<Note, number>();
     return this.parsedChords().map((chord) => {
       if (!slots.has(chord.root)) slots.set(chord.root, slots.size);
@@ -276,6 +281,7 @@ export class SoloinComponent {
         tones,
         toneLabels: this.toneLabelsFor(tones, chord.quality),
         colorVar: `--_chords-chord-color-${slot + 1}`,
+        diatonic: key ? isDiatonic(chord, key) : true,
       };
     });
   });
@@ -296,6 +302,7 @@ export class SoloinComponent {
       tones,
       toneLabels: this.toneLabelsFor(tones, quality),
       colorVar: '--_chords-chord-color-1',
+      diatonic: true, // the key's own tonic triad is diatonic to itself by construction
     };
   });
 
@@ -372,7 +379,8 @@ export class SoloinComponent {
     const tonic = this.keyTonicLayer();
     if (tonic) lines.push(`${tonic.label} (I): ${tonic.toneLabels.join(', ')}`);
     for (const layer of this.chordLayers()) {
-      lines.push(`${layer.label}: ${layer.toneLabels.join(', ')}`);
+      const badge = layer.diatonic ? '' : ` (${t.nonDiatonicBadge})`;
+      lines.push(`${layer.label}${badge}: ${layer.toneLabels.join(', ')}`);
     }
     return lines.join('\n');
   }

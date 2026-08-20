@@ -44,6 +44,15 @@ function familyKey(root: Note, quality: ChordQuality): string {
   return `${root}:${TRIAD_FAMILY[quality]}`;
 }
 
+// Whether a chord's root+quality (reduced to its triad family, same as key
+// detection) matches one of the key's own diatonic chords — e.g. A7 is not
+// diatonic to C major (C major's own vi is Am, not A7), even though A7 can
+// still be the detected key for a progression that leans on it.
+export function isDiatonic(chord: { root: Note; quality: ChordQuality }, key: Key): boolean {
+  const target = familyKey(chord.root, chord.quality);
+  return diatonicChords(key).some((c) => familyKey(c.root, c.quality) === target);
+}
+
 // Scans all 24 keys and scores the input against each key's generated diatonic
 // chords, same idea as circle-of-fifths' internal (unexported) key-detection,
 // independently implemented here against computed chords instead of a static table.

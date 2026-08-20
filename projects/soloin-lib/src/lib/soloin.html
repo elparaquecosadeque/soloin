@@ -172,7 +172,12 @@
       <div class="mosaic">
         @for (layer of chordLayers(); track layer.label + layer.colorVar) {
           <div class="mosaic-tile">
-            <div class="mosaic-tile-label" [style.color]="'var(' + layer.colorVar + ')'">{{ layer.label }}</div>
+            <div class="mosaic-tile-label" [style.color]="'var(' + layer.colorVar + ')'">
+              {{ layer.label }}
+              @if (!layer.diatonic) {
+                <span class="diatonic-badge">{{ text().nonDiatonicBadge }}</span>
+              }
+            </div>
             <soloin-fretboard
               [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
               [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
@@ -190,6 +195,9 @@
           <button type="button" (click)="stepCarousel(-1)" [disabled]="carouselIndex() === 0">‹ {{ text().previous }}</button>
           <span class="carousel-label">
             {{ activeChordLayer()?.label }} · {{ text().chordOf(carouselIndex() + 1, chordLayers().length) }}
+            @if (activeChordLayer() && !activeChordLayer()!.diatonic) {
+              <span class="diatonic-badge">{{ text().nonDiatonicBadge }}</span>
+            }
           </span>
           <button type="button" (click)="stepCarousel(1)" [disabled]="carouselIndex() === chordLayers().length - 1">
             {{ text().next }} ›
@@ -213,6 +221,9 @@
         <span class="legend-item" role="listitem">
           <span class="legend-dot" [style.background]="'var(' + layer.colorVar + ')'" aria-hidden="true"></span>
           <span>{{ layer.label }}</span>
+          @if (!layer.diatonic) {
+            <span class="diatonic-badge">{{ text().nonDiatonicBadge }}</span>
+          }
         </span>
       }
     </div>

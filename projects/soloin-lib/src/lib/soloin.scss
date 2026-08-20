@@ -110,6 +110,20 @@
   color: var(--_chords-muted);
 }
 
+.diatonic-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--_chords-muted);
+  vertical-align: middle;
+}
+
 .chord-warnings {
   margin: -8px 0 0;
   padding: 0;

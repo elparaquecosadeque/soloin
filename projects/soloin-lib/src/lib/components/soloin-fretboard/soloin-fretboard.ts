@@ -8,6 +8,7 @@ export interface ChordLayer {
   tones: Note[];
   toneLabels: string[]; // parallel to tones — note names or degree labels, computed by the caller
   colorVar: string;
+  diatonic: boolean; // whether this chord belongs to the detected/selected key
 }
 
 interface RenderDot {
