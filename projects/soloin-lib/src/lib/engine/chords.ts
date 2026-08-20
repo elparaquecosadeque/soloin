@@ -22,3 +22,20 @@ export function buildChordTones(root: Note, quality: ChordQuality | ChordFormula
   const offsets = typeof quality === 'string' ? CHORD_FORMULAS[quality] : quality;
   return offsets.map((offset) => mod12(root + offset));
 }
+
+// Standard interval-degree labels, parallel to CHORD_FORMULAS (same order,
+// same length) — the theoretically conventional spelling per quality (e.g.
+// aug's raised 5th is "#5", not the enharmonic "b6").
+export const CHORD_DEGREE_LABELS: Record<ChordQuality, readonly string[]> = {
+  major: ['R', '3', '5'],
+  minor: ['R', 'b3', '5'],
+  dim: ['R', 'b3', 'b5'],
+  aug: ['R', '3', '#5'],
+  maj7: ['R', '3', '5', '7'],
+  m7: ['R', 'b3', '5', 'b7'],
+  dom7: ['R', '3', '5', 'b7'],
+  m7b5: ['R', 'b3', 'b5', 'b7'],
+  dim7: ['R', 'b3', 'b5', 'bb7'],
+  sus2: ['R', '2', '5'],
+  sus4: ['R', '4', '5'],
+};

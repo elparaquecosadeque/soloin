@@ -51,6 +51,16 @@
 
     <!-- notes -->
     @for (dot of dots(); track dot.x + '-' + dot.y + '-' + dot.colorVar) {
+      @if (dot.isRoot) {
+        <circle
+          [attr.cx]="dot.x"
+          [attr.cy]="dot.y"
+          [attr.r]="dot.r + 3"
+          fill="none"
+          [attr.stroke]="'var(' + dot.colorVar + ')'"
+          stroke-width="2"
+        />
+      }
       <circle [attr.cx]="dot.x" [attr.cy]="dot.y" [attr.r]="dot.r" [attr.fill]="'var(' + dot.colorVar + ')'" />
       @if (dot.label) {
         <text

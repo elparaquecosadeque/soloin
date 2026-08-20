@@ -1,9 +1,12 @@
 import { Component, ElementRef, computed, input, viewChild } from '@angular/core';
-import { type Note, mod12, noteName } from '../../engine';
+import { type Note, mod12 } from '../../engine';
+import type { FretRange } from './caged';
 
 export interface ChordLayer {
   label: string;
+  root: Note;
   tones: Note[];
+  toneLabels: string[]; // parallel to tones — note names or degree labels, computed by the caller
   colorVar: string;
 }
 
@@ -13,6 +16,7 @@ interface RenderDot {
   r: number;
   colorVar: string;
   label: string;
+  isRoot: boolean;
 }
 
 // Standard 6-string guitar tuning, high string first (top row) to low string
@@ -58,8 +62,10 @@ export const FRETBOARD_FONT = "'Segoe UI', Roboto, system-ui, -apple-system, san
 })
 export class SoloinFretboard {
   readonly scaleNotes = input.required<Note[]>();
+  readonly scaleLabels = input<string[]>([]); // parallel to scaleNotes
+  readonly scaleRoot = input<Note | null>(null);
   readonly chordLayers = input<ChordLayer[]>([]);
-  readonly preferFlats = input(false);
+  readonly cagedBox = input<FretRange | null>(null);
   readonly ariaLabel = input('Fretboard');
 
   readonly svgRef = viewChild.required<ElementRef<SVGSVGElement>>('svg');
@@ -85,24 +91,43 @@ export class SoloinFretboard {
   // fret/string (rings nest inward); fine for typical 3-4 chord progressions.
   // Upgrade path: fan the dots out instead of nesting them if that ever bites.
   readonly dots = computed((): RenderDot[] => {
-    const scale = new Set(this.scaleNotes());
+    const scaleNotesArr = this.scaleNotes();
+    const scaleLabelsArr = this.scaleLabels();
+    const scaleRootPc = this.scaleRoot();
+    const scaleLabelByPc = new Map<Note, string>();
+    scaleNotesArr.forEach((n, i) => scaleLabelByPc.set(n, scaleLabelsArr[i] ?? ''));
+
     const layers = this.chordLayers();
-    const flats = this.preferFlats();
+    const box = this.cagedBox();
     const out: RenderDot[] = [];
 
     STRINGS.forEach((s, si) => {
       for (let f = 0; f <= FRETS; f++) {
+        if (box && (f < box.start || f > box.end)) continue;
         const pc = mod12(s.open + f);
-        const matches = layers.filter((l) => l.tones.includes(pc));
         const x = dotX(f);
         const y = dotY(si);
 
+        const matches = layers
+          .map((layer) => {
+            const idx = layer.tones.indexOf(pc);
+            return idx === -1 ? null : { layer, label: layer.toneLabels[idx] ?? '' };
+          })
+          .filter((m): m is { layer: ChordLayer; label: string } => m !== null);
+
         if (matches.length > 0) {
-          matches.forEach((layer, i) => {
-            out.push({ x, y, r: 13 - i * 4, colorVar: layer.colorVar, label: i === 0 ? noteName(pc, flats) : '' });
+          matches.forEach((m, i) => {
+            out.push({
+              x,
+              y,
+              r: 13 - i * 4,
+              colorVar: m.layer.colorVar,
+              label: i === 0 ? m.label : '',
+              isRoot: pc === m.layer.root,
+            });
           });
-        } else if (scale.has(pc)) {
-          out.push({ x, y, r: 10, colorVar: '--_chords-scale-note', label: noteName(pc, flats) });
+        } else if (scaleLabelByPc.has(pc)) {
+          out.push({ x, y, r: 10, colorVar: '--_chords-scale-note', label: scaleLabelByPc.get(pc)!, isRoot: pc === scaleRootPc });
         }
       }
     });

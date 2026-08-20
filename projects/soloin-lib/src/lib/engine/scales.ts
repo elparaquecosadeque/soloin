@@ -32,3 +32,20 @@ export function buildScale(root: Note, scale: ScaleName | ScaleFormula): Note[] 
   }
   return notes;
 }
+
+// Standard interval-degree labels, parallel to SCALES (same order, same
+// length) — the conventional spelling relative to the major scale for each
+// mode (e.g. Lydian's raised 4th is "#4", not the enharmonic "b5" that
+// Locrian's flat 5th would use for the same pitch class).
+export const SCALE_DEGREE_LABELS: Record<ScaleName, readonly string[]> = {
+  ionian: ['R', '2', '3', '4', '5', '6', '7'],
+  dorian: ['R', '2', 'b3', '4', '5', '6', 'b7'],
+  phrygian: ['R', 'b2', 'b3', '4', '5', 'b6', 'b7'],
+  lydian: ['R', '2', '3', '#4', '5', '6', '7'],
+  mixolydian: ['R', '2', '3', '4', '5', '6', 'b7'],
+  aeolian: ['R', '2', 'b3', '4', '5', 'b6', 'b7'],
+  locrian: ['R', 'b2', 'b3', '4', 'b5', 'b6', 'b7'],
+  majorPentatonic: ['R', '2', '3', '5', '6'],
+  minorPentatonic: ['R', 'b3', '4', '5', 'b7'],
+  blues: ['R', 'b3', '4', 'b5', '5', 'b7'],
+};

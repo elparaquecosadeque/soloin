@@ -6,6 +6,7 @@
   --_chords-primary: var(--chords-primary, #3b82f6);
   --_chords-border: var(--chords-border, #e2e8f0);
   --_chords-on-primary: var(--chords-on-primary, #ffffff);
+  --_chords-danger: var(--chords-danger, #a855f7);
   --_chords-chord-color-1: var(--chords-chord-color-1, var(--chords-primary, #3b82f6));
   --_chords-chord-color-2: var(--chords-chord-color-2, var(--chords-secondary, #06b6d4));
   --_chords-chord-color-3: var(--chords-chord-color-3, var(--chords-highlight, #f59e0b));
@@ -107,6 +108,17 @@
   margin: -8px 0 0;
   font-size: 0.85rem;
   color: var(--_chords-muted);
+}
+
+.chord-warnings {
+  margin: -8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+  color: var(--_chords-danger);
 }
 
 .scale-toggle {

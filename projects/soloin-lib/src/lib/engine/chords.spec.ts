@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildChordTones, CHORD_FORMULAS } from './chords';
+import { buildChordTones, CHORD_DEGREE_LABELS, CHORD_FORMULAS } from './chords';
 
 describe('buildChordTones', () => {
   it('builds Dm7 tones', () => {
@@ -30,5 +30,15 @@ describe('CHORD_FORMULAS', () => {
     expect(Object.keys(CHORD_FORMULAS).sort()).toEqual(
       ['aug', 'dim', 'dim7', 'dom7', 'm7', 'm7b5', 'maj7', 'major', 'minor', 'sus2', 'sus4'].sort(),
     );
+  });
+});
+
+describe('CHORD_DEGREE_LABELS', () => {
+  it('has one label per tone for every quality, always starting on R', () => {
+    for (const [name, offsets] of Object.entries(CHORD_FORMULAS)) {
+      const labels = CHORD_DEGREE_LABELS[name as keyof typeof CHORD_FORMULAS];
+      expect(labels.length).toBe(offsets.length);
+      expect(labels[0]).toBe('R');
+    }
   });
 });

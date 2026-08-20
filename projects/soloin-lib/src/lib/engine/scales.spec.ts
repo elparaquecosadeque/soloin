@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildScale, SCALES } from './scales';
+import { buildScale, SCALE_DEGREE_LABELS, SCALES } from './scales';
 
 describe('buildScale', () => {
   it('builds C ionian (major)', () => {
@@ -36,6 +36,16 @@ describe('SCALES', () => {
   it('has every formula sum to 12 semitones', () => {
     for (const steps of Object.values(SCALES)) {
       expect(steps.reduce((a, b) => a + b, 0)).toBe(12);
+    }
+  });
+});
+
+describe('SCALE_DEGREE_LABELS', () => {
+  it('has one label per note for every scale, always starting on R', () => {
+    for (const [name, steps] of Object.entries(SCALES)) {
+      const labels = SCALE_DEGREE_LABELS[name as keyof typeof SCALES];
+      expect(labels.length).toBe(steps.length);
+      expect(labels[0]).toBe('R');
     }
   });
 });

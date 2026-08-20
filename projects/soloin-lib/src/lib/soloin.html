@@ -42,6 +42,13 @@
     <p class="key-readout">
       {{ detectedKeyLabel() ? text().detectedKey(detectedKeyLabel()!) : text().noKeyDetected }}
     </p>
+    @if (unparsedChords().length > 0) {
+      <ul class="chord-warnings">
+        @for (item of unparsedChords(); track item.raw) {
+          <li>{{ text().unrecognizedChord(item.raw, item.suggestion) }}</li>
+        }
+      </ul>
+    }
   } @else {
     <div class="control">
       <label class="control-label" for="soloin-key">{{ text().keyLabel }}</label>
@@ -62,8 +69,78 @@
     </select>
   </div>
 
+  <div class="view-toggle" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="labelMode() === 'notes'"
+      [class.active]="labelMode() === 'notes'"
+      (click)="setLabelMode('notes')"
+    >
+      {{ text().notesLabelMode }}
+    </button>
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="labelMode() === 'degrees'"
+      [class.active]="labelMode() === 'degrees'"
+      (click)="setLabelMode('degrees')"
+    >
+      {{ text().degreesLabelMode }}
+    </button>
+  </div>
+
+  <div class="control">
+    <span class="control-label">{{ text().highlightLabel }}</span>
+    <div class="view-toggle" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="highlightMode() === 'all'"
+        [class.active]="highlightMode() === 'all'"
+        (click)="setHighlightMode('all')"
+      >
+        {{ text().highlightAll }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="highlightMode() === 'caged'"
+        [class.active]="highlightMode() === 'caged'"
+        (click)="setHighlightMode('caged')"
+      >
+        {{ text().highlightCaged }}
+      </button>
+    </div>
+  </div>
+
+  @if (highlightMode() === 'caged') {
+    <div class="control">
+      <span class="control-label">{{ text().boxLabel }}</span>
+      <div class="view-toggle" role="tablist">
+        @for (shape of cagedShapes; track shape) {
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="cagedShape() === shape"
+            [class.active]="cagedShape() === shape"
+            (click)="setCagedShape(shape)"
+          >
+            {{ shape }}
+          </button>
+        }
+      </div>
+    </div>
+  }
+
   @if (mode() !== 'progression' || chordLayers().length === 0) {
-    <soloin-fretboard [scaleNotes]="scaleNotes()" [chordLayers]="[]" />
+    <soloin-fretboard
+      [scaleNotes]="scaleNotes()"
+      [scaleLabels]="scaleLabels()"
+      [scaleRoot]="activeKey()?.root ?? null"
+      [chordLayers]="keyTonicLayer() ? [keyTonicLayer()!] : []"
+      [cagedBox]="cagedBox()"
+    />
   } @else {
     <div class="view-toggle" role="tablist">
       <button
@@ -96,7 +173,14 @@
         @for (layer of chordLayers(); track layer.label + layer.colorVar) {
           <div class="mosaic-tile">
             <div class="mosaic-tile-label" [style.color]="'var(' + layer.colorVar + ')'">{{ layer.label }}</div>
-            <soloin-fretboard [scaleNotes]="showScaleNotes() ? scaleNotes() : []" [chordLayers]="[layer]" [ariaLabel]="layer.label" />
+            <soloin-fretboard
+              [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
+              [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
+              [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
+              [chordLayers]="[layer]"
+              [cagedBox]="cagedBox()"
+              [ariaLabel]="layer.label"
+            />
           </div>
         }
       </div>
@@ -113,7 +197,10 @@
         </div>
         <soloin-fretboard
           [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
+          [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
+          [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
           [chordLayers]="activeChordLayer() ? [activeChordLayer()!] : []"
+          [cagedBox]="cagedBox()"
           [ariaLabel]="activeChordLayer()?.label ?? ''"
         />
       </div>
