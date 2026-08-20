@@ -24,10 +24,12 @@ export class App {}
 The theory engine is also exported headlessly, independent of the Angular component:
 
 ```ts
-import { buildScale, buildChordTones, detectKey, parseChordName } from '@gblp/soloin';
+import { buildScale, buildChordTones, detectKey, isDiatonic, parseChordName, suggestChordName } from '@gblp/soloin';
 
 buildScale(0, 'ionian'); // [0, 2, 4, 5, 7, 9, 11] — C major
 detectKey(['Am', 'F', 'C', 'G']); // { root: 0, mode: 'major' }
+isDiatonic({ root: 9, quality: 'dom7' }, { root: 0, mode: 'major' }); // false — A7 isn't in C major
+suggestChordName('Dsu4'); // 'Dsus4' — confident typo correction only, never a guess
 ```
 
 Override the component theme from any ancestor with these inherited CSS variables:

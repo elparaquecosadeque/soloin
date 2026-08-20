@@ -28,9 +28,16 @@ npm start
 | Progression input | Comma-separated chords, e.g. `Am, F, C, G` — auto-detects the most likely key |
 | Key input | Or pick a key directly from all 24 majors/minors |
 | Scale suggestions | 7 major-scale modes (Ionian–Locrian), major/minor pentatonic, blues |
+| Mosaic / Carousel views | Each progression chord gets its own compact fretboard (or step through them one at a time) instead of one board with every chord overlaid |
+| Root marker | The root/tonic of every scale and chord is ringed on the fretboard, in every view |
+| Tonic triad in Key mode | The I (or i) triad is highlighted within the full scale as a harmonic anchor |
+| Notes / Degrees | Toggle every label between note names (C, D, E...) and scale degrees (R, 2, b3...) |
+| Diatonic check | Chords that don't belong to the detected/selected key are flagged, on-screen and in exported text |
+| Unrecognized-chord suggestions | A mistyped chord (e.g. `Dsu4`) is flagged instead of silently dropped, with a "did you mean" guess when confident |
+| CAGED fretboard boxes | Narrow the whole neck down to one of the 5 classic movable hand positions (C-A-G-E-D), derived from real open-chord geometry |
 | Fretboard visualization | 6-string standard-tuning SVG fretboard; scale notes shown dim, chord tones color-coded per chord |
 | Theory engine | Real interval/pitch-class math (not hardcoded tables), exported headlessly alongside the component |
-| Export | Download the fretboard as PNG or PDF, or copy a plain-text summary |
+| Export | Download the fretboard as PNG or PDF (with a title band), or copy a plain-text summary |
 | Themes | Fully CSS-variable driven — inherits dark/light theming from any host app with zero extra plumbing |
 | i18n | English / Spanish UI copy |
 
@@ -71,11 +78,12 @@ export class AppComponent {}
 Or use the theory engine headlessly, without the Angular component:
 
 ```typescript
-import { buildScale, buildChordTones, detectKey } from '@gblp/soloin';
+import { buildScale, buildChordTones, detectKey, isDiatonic } from '@gblp/soloin';
 
-buildScale(0, 'ionian');           // [0, 2, 4, 5, 7, 9, 11] — C major
-buildChordTones(2, 'm7');          // [2, 5, 9, 0] — Dm7
-detectKey(['Am', 'F', 'C', 'G']);  // { root: 0, mode: 'major' }
+buildScale(0, 'ionian');                        // [0, 2, 4, 5, 7, 9, 11] — C major
+buildChordTones(2, 'm7');                       // [2, 5, 9, 0] — Dm7
+detectKey(['Am', 'F', 'C', 'G']);               // { root: 0, mode: 'major' }
+isDiatonic({ root: 9, quality: 'dom7' }, { root: 0, mode: 'major' }); // false — A7 isn't in C major
 ```
 
 Peer dependencies: `@angular/common` and `@angular/core` `^22.0.0`.
@@ -96,7 +104,7 @@ soloin/
 ├── projects/soloin-lib/        # publishable library
 │   ├── src/lib/
 │   │   ├── engine/              # pitch-class, scale, chord, parser, key-detection modules
-│   │   ├── components/soloin-fretboard/
+│   │   ├── components/soloin-fretboard/  # fretboard rendering + CAGED box geometry
 │   │   ├── export/               # PNG/PDF rasterization
 │   │   └── soloin.ts             # SoloinComponent
 │   ├── src/public-api.ts        # exports the component AND the engine
