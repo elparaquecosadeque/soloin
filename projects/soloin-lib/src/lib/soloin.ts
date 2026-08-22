@@ -14,9 +14,10 @@ import {
   SCALE_DEGREE_LABELS,
   suggestChordName,
   type ScaleName,
-} from './engine';
+} from '@gblp/music-theory';
 import { SoloinFretboard, type ChordLayer } from './components/soloin-fretboard/soloin-fretboard';
 import { CAGED_SHAPES, type CagedShape, cagedBoxRange, type FretRange } from './components/soloin-fretboard/caged';
+import { findTuning, TUNINGS, type Tuning, type TuningName } from './components/soloin-fretboard/tunings';
 
 export type Language = 'en' | 'es';
 
@@ -50,6 +51,8 @@ interface CopyText {
   highlightAll: string;
   highlightCaged: string;
   boxLabel: string;
+  tuningLabel: string;
+  tuningNames: Record<TuningName, string>;
   previous: string;
   next: string;
   chordOf: (index: number, total: number) => string;
@@ -117,6 +120,14 @@ const COPY: Record<Language, CopyText> = {
     highlightAll: 'All',
     highlightCaged: 'CAGED',
     boxLabel: 'Box',
+    tuningLabel: 'Tuning',
+    tuningNames: {
+      standard: 'Standard',
+      dropD: 'Drop D',
+      dadgad: 'DADGAD',
+      openG: 'Open G',
+      openD: 'Open D',
+    },
     previous: 'Previous',
     next: 'Next',
     chordOf: (index, total) => `Chord ${index} of ${total}`,
@@ -164,6 +175,14 @@ const COPY: Record<Language, CopyText> = {
     highlightAll: 'Todo',
     highlightCaged: 'CAGED',
     boxLabel: 'Caja',
+    tuningLabel: 'Afinación',
+    tuningNames: {
+      standard: 'Estándar',
+      dropD: 'Drop D',
+      dadgad: 'DADGAD',
+      openG: 'Sol abierto',
+      openD: 'Re abierto',
+    },
     previous: 'Anterior',
     next: 'Siguiente',
     chordOf: (index, total) => `Acorde ${index} de ${total}`,
@@ -207,6 +226,14 @@ export class SoloinComponent {
   readonly cagedShape = signal<CagedShape>('C');
   readonly cagedShapes = CAGED_SHAPES;
 
+  readonly tuningName = signal<TuningName>('standard');
+  readonly tunings = TUNINGS;
+  readonly tuning = computed<Tuning>(() => findTuning(this.tuningName()));
+  // CAGED boxes are anchored to standard-tuning open-chord positions (see
+  // caged.ts) — meaningless in any other tuning, so the option is hidden
+  // rather than shown computing a box that doesn't correspond to real shapes.
+  readonly isStandardTuning = computed(() => this.tuningName() === 'standard');
+
   // viewChildren, not viewChild: mosaic view renders one <soloin-fretboard>
   // per chord. Export always targets the first rendered board, which is the
   // only one in key mode and in carousel mode (mosaic disables export instead
@@ -247,7 +274,7 @@ export class SoloinComponent {
   // one hand position for the whole progression rather than hopping shapes
   // chord to chord, so this applies uniformly to every rendered fretboard.
   readonly cagedBox = computed<FretRange | null>(() => {
-    if (this.highlightMode() !== 'caged') return null;
+    if (this.highlightMode() !== 'caged' || !this.isStandardTuning()) return null;
     const key = this.activeKey();
     return key ? cagedBoxRange(this.cagedShape(), key.root) : null;
   });
@@ -343,6 +370,10 @@ export class SoloinComponent {
 
   setHighlightMode(mode: HighlightMode): void {
     this.highlightMode.set(mode);
+  }
+
+  setTuning(event: Event): void {
+    this.tuningName.set((event.target as HTMLSelectElement).value as TuningName);
   }
 
   setCagedShape(shape: CagedShape): void {

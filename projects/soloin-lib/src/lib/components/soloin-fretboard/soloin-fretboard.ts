@@ -1,6 +1,7 @@
 import { Component, ElementRef, computed, input, viewChild } from '@angular/core';
-import { type Note, mod12 } from '../../engine';
+import { type Note, mod12, noteName } from '@gblp/music-theory';
 import type { FretRange } from './caged';
+import { type Tuning, TUNINGS } from './tunings';
 
 export interface ChordLayer {
   label: string;
@@ -20,16 +21,11 @@ interface RenderDot {
   isRoot: boolean;
 }
 
-// Standard 6-string guitar tuning, high string first (top row) to low string
-// last (bottom row) — matches the visual convention of a fretboard diagram.
-const STRINGS = [
-  { label: 'E', open: 4 },
-  { label: 'B', open: 11 },
-  { label: 'G', open: 7 },
-  { label: 'D', open: 2 },
-  { label: 'A', open: 9 },
-  { label: 'E', open: 4 },
-] as const;
+// Always 6 strings, high string first (top row) to low string last (bottom
+// row) — matches the visual convention of a fretboard diagram. Which pitch
+// class each string is open-tuned to is dynamic (see the `tuning` input);
+// only the string COUNT is fixed, so geometry below can stay constant.
+const STRING_COUNT = 6;
 const FRETS = 12;
 
 // Geometry constants, adapted from bass-notes' fretboard layout (ML/OPEN_W/
@@ -42,12 +38,12 @@ const MT = 24;
 const MB = 36;
 const W = ML + OPEN_W + FRETS * FRET_W;
 const SVG_W = W + 16;
-const SVG_H = MT + (STRINGS.length - 1) * STR_H + MB;
+const SVG_H = MT + (STRING_COUNT - 1) * STR_H + MB;
 
 const dotX = (f: number): number => (f === 0 ? ML + OPEN_W / 2 : ML + OPEN_W + (f - 0.5) * FRET_W);
 const dotY = (si: number): number => MT + si * STR_H;
 
-const CENTER_Y = MT + ((STRINGS.length - 1) / 2) * STR_H;
+const CENTER_Y = MT + ((STRING_COUNT - 1) / 2) * STR_H;
 const POSITION_MARKERS = [
   ...[3, 5, 7, 9].map((f) => ({ cx: dotX(f), cy: CENTER_Y })),
   { cx: dotX(12), cy: CENTER_Y - STR_H / 2 },
@@ -67,6 +63,7 @@ export class SoloinFretboard {
   readonly scaleRoot = input<Note | null>(null);
   readonly chordLayers = input<ChordLayer[]>([]);
   readonly cagedBox = input<FretRange | null>(null);
+  readonly tuning = input<Tuning>(TUNINGS[0]);
   readonly ariaLabel = input('Fretboard');
 
   readonly svgRef = viewChild.required<ElementRef<SVGSVGElement>>('svg');
@@ -76,7 +73,7 @@ export class SoloinFretboard {
   readonly stringLabelX = ML - 6;
   readonly stringLineX2 = W;
   readonly stringY1 = MT;
-  readonly stringY2 = dotY(STRINGS.length - 1);
+  readonly stringY2 = dotY(STRING_COUNT - 1);
   readonly fretNumY = SVG_H - 6;
   readonly nutX = ML;
 
@@ -85,8 +82,9 @@ export class SoloinFretboard {
     isNut: i === 0,
   }));
   readonly fretNumbers = [0, 3, 5, 7, 9, 12].map((f) => ({ x: dotX(f), label: f }));
-  readonly strings = STRINGS.map((s, si) => ({ label: s.label, y: dotY(si) }));
   readonly positionMarkers = POSITION_MARKERS;
+
+  readonly strings = computed(() => this.tuning().strings.map((openPc, si) => ({ label: noteName(openPc), y: dotY(si) })));
 
   // ponytail: readability degrades past ~3 overlapping chord layers at one
   // fret/string (rings nest inward); fine for typical 3-4 chord progressions.
@@ -100,12 +98,13 @@ export class SoloinFretboard {
 
     const layers = this.chordLayers();
     const box = this.cagedBox();
+    const openPitches = this.tuning().strings;
     const out: RenderDot[] = [];
 
-    STRINGS.forEach((s, si) => {
+    openPitches.forEach((openPc, si) => {
       for (let f = 0; f <= FRETS; f++) {
         if (box && (f < box.start || f > box.end)) continue;
-        const pc = mod12(s.open + f);
+        const pc = mod12(openPc + f);
         const x = dotX(f);
         const y = dotY(si);
 

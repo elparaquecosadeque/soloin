@@ -1,4 +1,4 @@
-import { type Note, mod12 } from '../../engine';
+import { type Note, mod12 } from '@gblp/music-theory';
 
 export type CagedShape = 'C' | 'A' | 'G' | 'E' | 'D';
 

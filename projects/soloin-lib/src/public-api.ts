@@ -3,4 +3,4 @@
  */
 
 export * from './lib/soloin';
-export * from './lib/engine';
+export * from '@gblp/music-theory';

@@ -1,16 +1,16 @@
 # Handoff: Soloin
 
 **Created:** 2026-08-11
-**Last updated:** 2026-08-20
+**Last updated:** 2026-08-22
 **Branch:** master (pushed, in sync with `origin/master`)
 
 ---
 
 ## Summary
 
-Soloin is an Angular 22 library (`@gblp/soloin`) that fills a gap none of its sibling packages (`@gblp/chord-finder`, `@gblp/circle-of-fifths`, `@gblp/bass-notes`) address: given a chord progression or a key, it computes the scales that fit and shows exactly which notes to target on a 6-string guitar fretboard. Unlike its siblings, which each hardcode their own ad-hoc note model, Soloin has a real interval/pitch-class theory engine, and unlike its siblings (which only export their Angular component), Soloin exports the engine headlessly too — it's designed as the seed of a future shared `@gblp/music-theory` package.
+Soloin is an Angular 22 library (`@gblp/soloin`) that fills a gap none of its sibling packages (`@gblp/chord-finder`, `@gblp/circle-of-fifths`, `@gblp/bass-notes`) address: given a chord progression or a key, it computes the scales that fit and shows exactly which notes to target on a 6-string guitar fretboard. Unlike its siblings, which each hardcode their own ad-hoc note model, Soloin has a real interval/pitch-class theory engine.
 
-Since the initial build, a series of real-usage sessions (typing actual progressions, comparing against a reference guitar-scale tool, cross-checking the music theory by hand) drove a second wave of substantial features: per-chord Mosaic/Carousel views, a Notes/Degrees label toggle, root markers, a highlighted tonic triad in Key mode, a full CAGED fretboard-box system, a diatonic/non-diatonic check per chord, and typo-tolerant chord parsing with safe "did you mean" suggestions. The repo is now a git repo, pushed to GitHub, with the demo already live on GitHub Pages — only the npm publish is still pending (see Next Steps).
+Since the initial build, three more waves of work happened. A series of real-usage sessions (typing actual progressions, comparing against a reference guitar-scale tool, cross-checking the music theory by hand) drove a second wave of substantial features: per-chord Mosaic/Carousel views, a Notes/Degrees label toggle, root markers, a highlighted tonic triad in Key mode, a full CAGED fretboard-box system, a diatonic/non-diatonic check per chord, and typo-tolerant chord parsing with safe "did you mean" suggestions. `@gblp/soloin` 0.1.0 was then actually published to npm and the demo went live on GitHub Pages. A third wave then: extracted the theory engine into its own framework-agnostic package (`@gblp/music-theory`, a new repo), added alternate-tuning support, and integrated Soloin into `the-chords` as its 4th tool. See "Third wave" below and `TODO.md` for what's still open.
 
 ---
 
@@ -37,6 +37,12 @@ Since the initial build, a series of real-usage sessions (typing actual progress
 - [x] **Diatonic check** (`isDiatonic`): flags, per chord, whether it belongs to the detected/selected key — visible as a badge on every mosaic tile, the carousel label, the legend, and the copy-as-text output
 - [x] **Chord-parsing fixes**: bare `"4"` now parses as sus4 (tab-style shorthand, e.g. `"D4"`); unrecognized tokens are surfaced instead of silently dropped, with a Levenshtein-distance "did you mean" suggestion that refuses to guess when the closest candidates would mean musically different things (verified by a test that caught this exact false-positive risk during development)
 
+### Third wave (extraction, tunings, the-chords integration)
+
+- [x] **Extracted `@gblp/music-theory`** into its own repo (`C:\Users\Bruno\Documents\repos\music-theory`, github.com/elparaquecosadeque/music-theory): the entire `engine/` folder moved out verbatim (same 38 tests, same behavior), rebuilt as a plain TypeScript package with **no Angular dependency** (`tsc` only, no ng-packagr) since the engine never had any Angular code in it. Soloin now depends on it (`projects/soloin-lib/package.json`, `ng-package.json`'s `allowedNonPeerDependencies`), and `public-api.ts` re-exports it (`export * from '@gblp/music-theory'`) so `@gblp/soloin`'s own public API is unchanged for existing consumers. Deliberately single-consumer for now — circle-of-fifths was NOT migrated to it (see Key Decisions).
+- [x] **Alternate tunings** (`components/soloin-fretboard/tunings.ts`): Standard, Drop D, DADGAD, Open G, Open D. The fretboard's geometry (frets/strings/positions) never depended on tuning to begin with — only which pitch class each string is open-tuned to changes, so `SoloinFretboard` took a `tuning` input and the rest of its geometry stayed constant. CAGED boxes are hidden (not shown-but-wrong) whenever a non-standard tuning is active, since the box math is anchored to standard-tuning open-chord shapes specifically.
+- [x] **Integrated Soloin into `the-chords`** as a 4th route (`/soloin`), matching the exact existing pattern for the other 3 siblings (flat route, trivial wrapper page injecting `PreferencesService`, one nav link, one `LocalizationService` dictionary key) — no new "composition flow" page (that idea was explicitly scoped out, see Key Decisions and TODO.md). Added the 7 CSS custom-property tokens Soloin introduced (`--chords-scale-note`, `--chords-chord-color-1..6`) to `the-chords/src/app/app.scss`'s dark and light blocks — verified live: theme and language both propagate into Soloin with zero extra plumbing, exactly as the original "no component-level theme input" design intended.
+
 ---
 
 ## Key Decisions
@@ -54,17 +60,34 @@ Since the initial build, a series of real-usage sessions (typing actual progress
 | "Did you mean" suggestions refuse to guess on quality-ambiguous ties | A textual edit-distance tie between candidates that mean *different* chord qualities (e.g. sus2 vs sus4) is a coin flip, not a confident correction; ties that resolve to the *same* quality (e.g. "sus" vs "sus4") aren't real ambiguity and are still suggested | Always suggest the first/any tied candidate — rejected, would produce confident-looking wrong guesses (caught by a test during development, e.g. "D6" almost suggested "Dm") |
 | All progression chords' tones shown simultaneously (within a tile/board), color-coded | User's explicit choice over a bass-notes-style prev/next stepper | Step-through playback — considered, not chosen |
 | No component-level theme input | Matches all 3 siblings — theming is pure CSS custom property inheritance | Explicit `theme` signal input — rejected, unnecessary |
+| `@gblp/music-theory` extracted as plain TypeScript, no Angular | The engine has zero Angular code; forcing it through ng-packagr would add a real dependency the code doesn't need, and it's meant to be usable outside Angular too | Angular library (ng-packagr) like the rest of the family — rejected, consistency of tooling isn't worth an unnecessary dependency |
+| `@gblp/music-theory` extraction is single-consumer (Soloin only) | Circle-of-fifths still has its own working static `KEYS[]` table; migrating it wasn't asked for and adds risk/scope to a repo untouched all session, for a benefit (proven multi-consumer reuse) that isn't needed yet | Also migrate circle-of-fifths in the same batch — rejected as scope creep, tracked in TODO.md instead |
+| CAGED boxes hidden (not shown-but-wrong) outside standard tuning | The box math is derived from standard-tuning open-chord shapes specifically; a "G shape" doesn't mean the same thing in Drop D | Recompute/generalize CAGED for every tuning — rejected as a much larger, separate project (each alternate tuning has its own natural chord vocabulary) |
+| the-chords integration ships as a plain 4th route, not the "composition flow" page | Nothing like that flow exists anywhere in the-chords' actual code (confirmed by exploring it fresh, not assumed from old docs) — building it now would be a large, novel, undesigned UX feature bolted onto an unrelated batch of 3 other initiatives | Build the guided rhythm→solo→bass flow now — rejected, deserves its own dedicated design session (tracked in TODO.md) |
 
 ---
 
 ## Files Affected
 
-### Engine (`projects/soloin-lib/src/lib/engine/`)
-- `pitch-class.ts`, `scales.ts` (+`SCALE_DEGREE_LABELS`), `chords.ts` (+`CHORD_DEGREE_LABELS`), `chord-parser.ts` (+`suggestChordName`, `'4'` alias), `key-detection.ts` (+`isDiatonic`), `index.ts` — each with a `.spec.ts`
+### `@gblp/music-theory` (separate repo now — `C:\Users\Bruno\Documents\repos\music-theory`)
+- `src/{pitch-class,scales,chords,chord-parser,key-detection,index}.ts` (+ `.spec.ts` each) — moved verbatim from Soloin's old `engine/` folder, then fixed for real Node ESM (see Gotchas)
+- Plain `tsc` build (`tsconfig.json`, no ng-packagr), `vitest.config.ts`, `publish.yml` + `release.yml` (no `pages.yml` — no demo/UI to deploy)
+
+### Soloin — Engine (now just re-exports `@gblp/music-theory`)
+- `projects/soloin-lib/src/lib/engine/` was **deleted** — its contents live in the `music-theory` repo now
+- `public-api.ts`: `export * from '@gblp/music-theory'` instead of `export * from './lib/engine'` — the public API surface of `@gblp/soloin` is unchanged
+- `projects/soloin-lib/package.json` (+dependency), `ng-package.json` (+`allowedNonPeerDependencies`)
 
 ### Fretboard (`projects/soloin-lib/src/lib/components/soloin-fretboard/`)
-- `soloin-fretboard.{ts,html,scss}` — root-ring rendering, CAGED-box fret filtering, labels now supplied by the caller (notes or degrees) instead of computed internally
+- `soloin-fretboard.{ts,html,scss}` — root-ring rendering, CAGED-box fret filtering, dynamic tuning, labels now supplied by the caller (notes or degrees) instead of computed internally
 - `caged.ts` (+ `.spec.ts`) — the 5-shape box geometry
+- `tunings.ts` (+ `.spec.ts`, new) — the 5 supported tunings' open-string pitch classes
+
+### the-chords (`C:\Users\Bruno\Documents\repos\the-chords`)
+- `src/app/soloin-page.ts` (new) — wrapper page, identical pattern to the other 3 siblings
+- `src/app/app.routes.ts`, `app.html`, `localization.service.ts` — new route, nav link, i18n dictionary key
+- `src/app/app.scss` — added the 7 CSS tokens Soloin introduced, to both the dark and light `.shell` blocks
+- `package.json` (+`@gblp/soloin` dependency), `angular.json` (bumped the `anyComponentStyle` budget warning threshold 4kB→6kB — the 7 new CSS lines pushed `app.scss` slightly over it)
 
 ### Component
 - `soloin.{ts,html,scss,spec.ts}` — dual-mode input, Mosaic/Carousel, Notes/Degrees, Highlight/CAGED-box, scale-backdrop toggle, diatonic badges, chord-parse warnings
@@ -82,16 +105,21 @@ Since the initial build, a series of real-usage sessions (typing actual progress
 ### Architecture
 
 ```
+music-theory/                      ← separate repo, plain TypeScript, no Angular
+└── src/{pitch-class,scales,chords,chord-parser,key-detection,index}.ts
+
 soloin/
 ├── src/app/                       ← demo shell, imports @gblp/soloin from dist/
 ├── projects/soloin-lib/
 │   └── src/
-│       ├── public-api.ts          ← exports SoloinComponent + full engine (NOT the CAGED module — that's fretboard-internal, not instrument-agnostic theory)
+│       ├── public-api.ts          ← exports SoloinComponent + re-exports @gblp/music-theory in full (NOT the CAGED/tunings modules — those are fretboard-internal, guitar-specific, not instrument-agnostic theory)
 │       └── lib/
-│           ├── engine/            ← pure functions, no Angular deps
-│           ├── components/soloin-fretboard/  ← presentational SVG component + CAGED box geometry
+│           ├── components/soloin-fretboard/  ← presentational SVG component + CAGED box geometry + tunings
 │           ├── export/rasterize.ts            ← PNG/PDF pipeline, dynamically imported
-│           └── soloin.ts          ← SoloinComponent, wires engine → fretboard
+│           └── soloin.ts          ← SoloinComponent, imports @gblp/music-theory, wires engine → fretboard
+
+the-chords/
+└── src/app/soloin-page.ts         ← 4th sibling route, same pattern as chord-finder/circle-of-fifths/bass-notes
 ```
 
 **Engine**: pitch classes are plain numbers 0–11. Scales and chords are both "formula applied to a root". `detectKey` scores a parsed chord list against all 24 keys' generated diatonic triads. `isDiatonic` reuses that same triad-family matching to answer the question per-chord instead of per-progression. `suggestChordName` only fires when the root parses but the quality suffix doesn't, and only returns a suggestion when exactly one *quality* (not text string) wins within 2 edits.
@@ -121,13 +149,17 @@ Angular 22, TypeScript ~6.0.2, vitest, ng-packagr — no new dependencies added 
 - **Fuzzy "did you mean" suggestions must be checked by resolved meaning, not surface text.** Two textually-different candidates can tie on edit distance while meaning either the same thing (not real ambiguity — pick one) or different things (real ambiguity — refuse to guess). Checking only the string distance produces convincing-looking wrong answers.
 - **The pitch-class speller is not diatonic-aware.** `noteName()` always renders a pitch class through one fixed sharp/flat table, never per-scale-degree spelling. Accepted simplification (matches bass-notes' precedent), documented with a `ponytail:` comment and upgrade path.
 - **The 6-color chord palette cycles via `hue-rotate()` past 6 distinct roots** — fine for realistic progressions, documented as a ceiling.
+- **`tsc`'s `moduleResolution: "bundler"` silently produces broken ESM for plain Node consumers.** It lets relative imports omit file extensions, which works fine through a bundler but fails at runtime under Node's native ESM loader (`Cannot find module '.../dist/pitch-class'`) — caught only because the fresh `music-theory` package was actually run under `node`, not just type-checked. Fixed with `moduleResolution: "NodeNext"` + explicit `.js` extensions on every internal relative import (TypeScript maps `.js` back to the sibling `.ts` file automatically). **Lesson: a framework-agnostic package needs to be verified by actually running under Node, not just by a clean `tsc`/bundler build — those don't catch this class of bug.**
+- **ng-packagr requires non-Angular dependencies to be explicitly allow-listed.** Adding `@gblp/music-theory` as a plain `dependencies` entry in `projects/soloin-lib/package.json` fails the library build with `Dependency @gblp/music-theory must be explicitly allowed` until it's added to `allowedNonPeerDependencies` in `ng-package.json` (same pattern chord-finder already uses for `chords-db`).
+- **Testing a not-yet-published npm dependency locally**: `npm pack` the dependency, `npm install --no-save <tarball-path>` in the consumer (after manually setting the real semver range in the consumer's own `package.json`, so the manifest already looks like its published shape). `--no-save` keeps `package.json`/`package-lock.json` untouched while still populating `node_modules` for a real build/test run. When two local tarballs depend on each other (music-theory + soloin, both needed by the-chords for local testing), install both tarballs in one `npm install` call so npm resolves the transitive one from the just-installed local copy instead of trying to hit the registry.
 
 ### Assumptions Made
 
-- Standard 6-string guitar tuning only (E-A-D-G-B-E) — no alt tunings or capo support (see TODO.md).
+- 5 tunings supported (Standard, Drop D, DADGAD, Open G, Open D) — no capo support yet (see TODO.md), and no arbitrary/custom tuning input.
 - EN/ES only; note names stay fixed English letters in both languages (no solfège) — deliberately rejected when raised, to match sibling convention.
 - `detectKey`/`isDiatonic` reduce extended qualities to a triad family (maj7/dom7/sus2/sus4 → major family, etc.) for matching purposes — a chord can be "diatonic" by this check while still being a color-tone extension of a plain triad.
 - CAGED boxes apply uniformly across the whole progression/key (one hand position for everything), not per-chord — matches how the system is actually used in practice.
+- `@gblp/music-theory` has exactly one consumer (`@gblp/soloin`) — circle-of-fifths' own key/diatonic-chord logic was deliberately left untouched (see Key Decisions).
 
 ### Known Issues
 
@@ -139,35 +171,40 @@ None currently blocking.
 
 ### What's Working
 
-- [x] Theory engine: scale/chord/mode generation, chord-name parsing (+ typo suggestions), key detection, diatonic check
-- [x] `SoloinComponent`: dual-mode input, Mosaic/Carousel, Notes/Degrees, CAGED boxes, scale-backdrop toggle, diatonic badges, chord-parse warnings, EN/ES i18n — all verified live in a browser across multiple sessions
+- [x] Theory engine (now `@gblp/music-theory`): scale/chord/mode generation, chord-name parsing (+ typo suggestions), key detection, diatonic check
+- [x] `SoloinComponent`: dual-mode input, Mosaic/Carousel, Notes/Degrees, CAGED boxes, alternate tunings, scale-backdrop toggle, diatonic badges, chord-parse warnings, EN/ES i18n — all verified live in a browser across multiple sessions
 - [x] Export: PNG/PDF (with title band) and copy-as-text, verified against the live rasterization pipeline
-- [x] `npm run build:lib` and `npm run build` (demo app) both build cleanly with strict TypeScript settings
-- [x] **Git**: repo initialized, 5 commits, pushed and in sync with `origin/master` on GitHub
+- [x] `npm run build:lib` and `npm run build` (demo app) both build cleanly with strict TypeScript settings, depending on `@gblp/music-theory`
+- [x] **Soloin integrated into `the-chords`** — `/soloin` route, verified live: theme + language both propagate correctly with zero extra plumbing
+- [x] **Git**: `soloin` repo pushed and in sync with `origin/master`; `music-theory` repo created, 2 commits, pushed
 - [x] **GitHub Pages**: `pages.yml` has already run successfully — the demo is live at `https://elparaquecosadeque.github.io/soloin/`
-- [ ] **npm**: `@gblp/soloin` has not been published yet (confirmed via the public registry) — `publish.yml` has never been triggered
+- [x] **npm**: `@gblp/soloin` 0.1.0 IS published (confirmed via the public registry)
+- [ ] **npm**: `@gblp/music-theory` not published yet, and `@gblp/soloin` needs a 0.2.0 publish (new dependency + tunings feature) — see Next Steps for order
+- [ ] **the-chords**: local changes verified working via locally-packed tarballs, not yet committed/pushed/deployed (that repo's commit conventions are the user's own to apply)
 
 ### Tests
 
-- [x] Unit tests: 44 passing (`npm test`) — engine (pitch-class, scales, chords, chord-parser, key-detection, caged) + component smoke/i18n
+- [x] Unit tests: 38 in `music-theory` + 9 in `soloin` = 47 total, same count as before the extraction (no coverage lost in the move)
 - [ ] Integration/e2e tests: none (matches sibling convention)
-- [x] Manual testing: multiple live `ng serve` sessions, exercising every mode/toggle combination, export paths, and cross-checked against a real reference tool's screenshot for the CAGED geometry
+- [x] Manual testing: multiple live `ng serve` sessions per feature, cross-checked against a real reference tool's screenshot for CAGED geometry, and the full the-chords integration verified live (route, nav, theme, language)
 
 ---
 
 ## Next Steps
 
-### Immediate
+### Immediate — publish in this order (dependency direction matters)
 
-1. **Publish to npm.** Requires an `NPM_TOKEN` secret (or npm trusted publishing) configured on the GitHub repo, then triggering the **Publish npm package** workflow (`workflow_dispatch`) — or pushing a `v0.1.0` tag to also cut a GitHub Release via `release.yml`. This is a user decision/action, not something to automate unprompted.
+1. **Publish `@gblp/music-theory` first.** `cd music-theory && npm run build && npm publish` (or trigger its `Publish npm package` Action). `@gblp/soloin` depends on it — publishing soloin first would fail to resolve.
+2. **Then publish `@gblp/soloin` 0.2.0.** Same process as before (`npm run build:lib && npm publish ./dist/soloin-lib --access public`) — now resolves `@gblp/music-theory` from the real registry instead of a local tarball.
+3. **Commit and push the-chords changes**, then deploy (it's an app, not a library — whatever the-chords' own deploy process is, not an npm publish).
 
 ### Subsequent
 
-See `TODO.md` for the full list of deferred ideas (the-chords integration, shared `@gblp/music-theory` extraction, alternate tunings, per-chord alternate-scale suggestions for non-diatonic chords, TNPS box system).
+See `TODO.md` for what's still open (capo support, migrating circle-of-fifths onto the shared engine, the real "composition flow" page, per-chord alternate-scale suggestions, TNPS boxes, a diatonic-aware speller).
 
 ### Blocked On
 
-Nothing — all work is self-contained.
+Nothing — all three pieces build and test cleanly; only the publish/deploy steps above are outstanding, and those are the user's to run.
 
 ---
 
@@ -184,12 +221,14 @@ npm run build:gh-pages   # demo build with /soloin/ base href
 ```
 
 Live demo: https://elparaquecosadeque.github.io/soloin/
+Engine repo: https://github.com/elparaquecosadeque/music-theory
 
 If you need to find more context:
-- `grep -rn "ponytail:" projects/soloin-lib/src` — every deliberate simplification and its upgrade path
+- `grep -rn "ponytail:" projects/soloin-lib/src ../music-theory/src` — every deliberate simplification and its upgrade path, across both repos
 - `grep -n "chord-color\|--_chords-danger" projects/soloin-lib/src/lib/soloin.scss projects/soloin-lib/src/lib/components/soloin-fretboard/soloin-fretboard.scss` — tokens that must be declared in both `:host` blocks
-- `cat TODO.md` — deferred feature ideas, including the the-chords integration
+- `cat TODO.md` — deferred feature ideas, including the real composition-flow page
+- `the-chords/src/app/soloin-page.ts` and the 3 sibling `*-page.ts` files next to it — the wrapper-page pattern any future sibling integration should copy
 
 ---
 
-*This handoff was last updated on 2026-08-20.*
+*This handoff was last updated on 2026-08-22.*

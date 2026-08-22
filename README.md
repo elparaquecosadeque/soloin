@@ -2,7 +2,7 @@
 
 Angular 22 app that finds the scales fitting a chord progression or key, and shows exactly which notes to target on a 6-string guitar fretboard. Enter a progression like `Am, F, C, G` and Soloin detects the key, lists the scales that work over it, and highlights each chord's tones in a distinct color on top of the scale.
 
-Also published as **`@gblp/soloin`** — an Angular component (plus a headless theory engine) you can drop into any Angular 22+ app.
+Also published as **`@gblp/soloin`** — an Angular component you can drop into any Angular 22+ app. The theory engine itself lives in [`@gblp/music-theory`](https://github.com/elparaquecosadeque/music-theory), a separate framework-agnostic package Soloin depends on.
 
 ---
 
@@ -34,9 +34,10 @@ npm start
 | Notes / Degrees | Toggle every label between note names (C, D, E...) and scale degrees (R, 2, b3...) |
 | Diatonic check | Chords that don't belong to the detected/selected key are flagged, on-screen and in exported text |
 | Unrecognized-chord suggestions | A mistyped chord (e.g. `Dsu4`) is flagged instead of silently dropped, with a "did you mean" guess when confident |
-| CAGED fretboard boxes | Narrow the whole neck down to one of the 5 classic movable hand positions (C-A-G-E-D), derived from real open-chord geometry |
-| Fretboard visualization | 6-string standard-tuning SVG fretboard; scale notes shown dim, chord tones color-coded per chord |
-| Theory engine | Real interval/pitch-class math (not hardcoded tables), exported headlessly alongside the component |
+| CAGED fretboard boxes | Narrow the whole neck down to one of the 5 classic movable hand positions (C-A-G-E-D), derived from real open-chord geometry (standard tuning only) |
+| Alternate tunings | Standard, Drop D, DADGAD, Open G, Open D |
+| Fretboard visualization | 6-string SVG fretboard; scale notes shown dim, chord tones color-coded per chord |
+| Theory engine | Real interval/pitch-class math (not hardcoded tables) — [`@gblp/music-theory`](https://github.com/elparaquecosadeque/music-theory), usable standalone outside Angular too |
 | Export | Download the fretboard as PNG or PDF (with a title band), or copy a plain-text summary |
 | Themes | Fully CSS-variable driven — inherits dark/light theming from any host app with zero extra plumbing |
 | i18n | English / Spanish UI copy |
@@ -75,10 +76,11 @@ import { SoloinComponent } from '@gblp/soloin';
 export class AppComponent {}
 ```
 
-Or use the theory engine headlessly, without the Angular component:
+Or use the theory engine headlessly (re-exported from [`@gblp/music-theory`](https://github.com/elparaquecosadeque/music-theory)), without the Angular component:
 
 ```typescript
 import { buildScale, buildChordTones, detectKey, isDiatonic } from '@gblp/soloin';
+// same functions are also importable directly from '@gblp/music-theory'
 
 buildScale(0, 'ionian');                        // [0, 2, 4, 5, 7, 9, 11] — C major
 buildChordTones(2, 'm7');                       // [2, 5, 9, 0] — Dm7
@@ -103,8 +105,7 @@ soloin/
 ├── src/app/                    # demo shell app
 ├── projects/soloin-lib/        # publishable library
 │   ├── src/lib/
-│   │   ├── engine/              # pitch-class, scale, chord, parser, key-detection modules
-│   │   ├── components/soloin-fretboard/  # fretboard rendering + CAGED box geometry
+│   │   ├── components/soloin-fretboard/  # fretboard rendering + CAGED box geometry + tunings
 │   │   ├── export/               # PNG/PDF rasterization
 │   │   └── soloin.ts             # SoloinComponent
 │   ├── src/public-api.ts        # exports the component AND the engine
@@ -119,4 +120,4 @@ soloin/
 
 ## Part of The Chords ecosystem
 
-Soloin is designed to integrate with [the-chords](https://github.com/elparaquecosadeque/the-chords) via the `@gblp/soloin` npm package, alongside Chord Finder, Circle of Fifths, and Bass Notes — that integration is a planned future phase, not part of this package.
+Soloin is integrated into [the-chords](https://github.com/elparaquecosadeque/the-chords) (as its `/soloin` route) alongside Chord Finder, Circle of Fifths, and Bass Notes.

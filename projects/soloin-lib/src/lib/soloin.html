@@ -69,6 +69,15 @@
     </select>
   </div>
 
+  <div class="control">
+    <label class="control-label" for="soloin-tuning">{{ text().tuningLabel }}</label>
+    <select id="soloin-tuning" class="select-input" [value]="tuningName()" (change)="setTuning($event)">
+      @for (t of tunings; track t.name) {
+        <option [value]="t.name">{{ text().tuningNames[t.name] }}</option>
+      }
+    </select>
+  </div>
+
   <div class="view-toggle" role="tablist">
     <button
       type="button"
@@ -102,19 +111,21 @@
       >
         {{ text().highlightAll }}
       </button>
-      <button
-        type="button"
-        role="tab"
-        [attr.aria-selected]="highlightMode() === 'caged'"
-        [class.active]="highlightMode() === 'caged'"
-        (click)="setHighlightMode('caged')"
-      >
-        {{ text().highlightCaged }}
-      </button>
+      @if (isStandardTuning()) {
+        <button
+          type="button"
+          role="tab"
+          [attr.aria-selected]="highlightMode() === 'caged'"
+          [class.active]="highlightMode() === 'caged'"
+          (click)="setHighlightMode('caged')"
+        >
+          {{ text().highlightCaged }}
+        </button>
+      }
     </div>
   </div>
 
-  @if (highlightMode() === 'caged') {
+  @if (highlightMode() === 'caged' && isStandardTuning()) {
     <div class="control">
       <span class="control-label">{{ text().boxLabel }}</span>
       <div class="view-toggle" role="tablist">
@@ -140,6 +151,7 @@
       [scaleRoot]="activeKey()?.root ?? null"
       [chordLayers]="keyTonicLayer() ? [keyTonicLayer()!] : []"
       [cagedBox]="cagedBox()"
+      [tuning]="tuning()"
     />
   } @else {
     <div class="view-toggle" role="tablist">
@@ -184,6 +196,7 @@
               [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
               [chordLayers]="[layer]"
               [cagedBox]="cagedBox()"
+              [tuning]="tuning()"
               [ariaLabel]="layer.label"
             />
           </div>
@@ -209,6 +222,7 @@
           [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
           [chordLayers]="activeChordLayer() ? [activeChordLayer()!] : []"
           [cagedBox]="cagedBox()"
+          [tuning]="tuning()"
           [ariaLabel]="activeChordLayer()?.label ?? ''"
         />
       </div>

@@ -21,7 +21,7 @@
     }
 
     <!-- strings -->
-    @for (s of strings; track $index) {
+    @for (s of strings(); track $index) {
       <line [attr.x1]="nutX" [attr.y1]="s.y" [attr.x2]="stringLineX2" [attr.y2]="s.y" stroke="var(--_chords-string)" stroke-width="2" />
       <text
         [attr.x]="stringLabelX"

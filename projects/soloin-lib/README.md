@@ -21,7 +21,7 @@ export class App {}
 
 `language` accepts `en` or `es` and defaults to `en`.
 
-The theory engine is also exported headlessly, independent of the Angular component:
+The theory engine — [`@gblp/music-theory`](https://www.npmjs.com/package/@gblp/music-theory), a separate framework-agnostic dependency — is also re-exported headlessly, independent of the Angular component:
 
 ```ts
 import { buildScale, buildChordTones, detectKey, isDiatonic, parseChordName, suggestChordName } from '@gblp/soloin';

@@ -3,5 +3,6 @@
   "dest": "../../dist/soloin-lib",
   "lib": {
     "entryFile": "src/public-api.ts"
-  }
+  },
+  "allowedNonPeerDependencies": ["@gblp/music-theory"]
 }
