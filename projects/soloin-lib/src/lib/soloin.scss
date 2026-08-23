@@ -110,6 +110,36 @@
   color: var(--_chords-muted);
 }
 
+.key-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 0;
+}
+
+.key-alternatives-label {
+  font-size: 0.75rem;
+  color: var(--_chords-muted);
+}
+
+.key-alternative {
+  padding: 3px 10px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--_chords-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &.active {
+    background: var(--_chords-primary);
+    border-color: var(--_chords-primary);
+    color: var(--_chords-on-primary);
+  }
+}
+
 .diatonic-badge {
   display: inline-block;
   margin-left: 6px;

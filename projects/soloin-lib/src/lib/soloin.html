@@ -42,6 +42,21 @@
     <p class="key-readout">
       {{ detectedKeyLabel() ? text().detectedKey(detectedKeyLabel()!) : text().noKeyDetected }}
     </p>
+    @if (tiedKeyAlternatives().length > 1) {
+      <div class="key-alternatives">
+        <span class="key-alternatives-label">{{ text().alsoFitsLabel }}</span>
+        @for (key of tiedKeyAlternatives(); track key.root + key.mode) {
+          <button
+            type="button"
+            class="key-alternative"
+            [class.active]="activeKey()?.root === key.root && activeKey()?.mode === key.mode"
+            (click)="selectKeyOverride(key)"
+          >
+            {{ keyLabel(key) }}
+          </button>
+        }
+      </div>
+    }
     @if (unparsedChords().length > 0) {
       <ul class="chord-warnings">
         @for (item of unparsedChords(); track item.raw) {
@@ -205,14 +220,14 @@
     } @else {
       <div class="carousel">
         <div class="carousel-nav">
-          <button type="button" (click)="stepCarousel(-1)" [disabled]="carouselIndex() === 0">‹ {{ text().previous }}</button>
+          <button type="button" (click)="stepCarousel(-1)" [disabled]="carouselDisplayIndex() === 0">‹ {{ text().previous }}</button>
           <span class="carousel-label">
-            {{ activeChordLayer()?.label }} · {{ text().chordOf(carouselIndex() + 1, chordLayers().length) }}
+            {{ activeChordLayer()?.label }} · {{ text().chordOf(carouselDisplayIndex() + 1, chordLayers().length) }}
             @if (activeChordLayer() && !activeChordLayer()!.diatonic) {
               <span class="diatonic-badge">{{ text().nonDiatonicBadge }}</span>
             }
           </span>
-          <button type="button" (click)="stepCarousel(1)" [disabled]="carouselIndex() === chordLayers().length - 1">
+          <button type="button" (click)="stepCarousel(1)" [disabled]="carouselDisplayIndex() === chordLayers().length - 1">
             {{ text().next }} ›
           </button>
         </div>

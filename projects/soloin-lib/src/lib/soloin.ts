@@ -4,7 +4,6 @@ import {
   buildScale,
   CHORD_DEGREE_LABELS,
   type ChordQuality,
-  detectKey,
   isDiatonic,
   type Key,
   type Note,
@@ -20,6 +19,38 @@ import { CAGED_SHAPES, type CagedShape, cagedBoxRange, type FretRange } from './
 import { findTuning, TUNINGS, type Tuning, type TuningName } from './components/soloin-fretboard/tunings';
 
 export type Language = 'en' | 'es';
+
+// A degree label already carries its own accidental (e.g. Phrygian's "b2", Lydian's
+// "#4") — spelling straight off it beats music-theory's fixed always-sharp default
+// and matches how every scale reference (muted.io included) spells modal alterations,
+// with no per-root key-signature table needed.
+function spellNote(pc: Note, degreeLabel: string): string {
+  return noteName(pc, degreeLabel.startsWith('b'));
+}
+
+interface KeyCandidate {
+  key: Key;
+  score: number;
+}
+
+// ponytail: reimplements music-theory's detectKey scoring loop locally (via the
+// already-exported isDiatonic) instead of a new music-theory export, so this ships
+// without a cross-repo npm publish. Upgrade path: hoist into music-theory as
+// detectKeyCandidates() once both packages are due for a version bump anyway.
+function detectKeyCandidates(chordNames: string[]): KeyCandidate[] {
+  const parsed = chordNames.map(parseChordName).filter((c): c is ParsedChord => c !== null);
+  if (parsed.length === 0) return [];
+
+  const candidates: KeyCandidate[] = [];
+  for (let root = 0; root < 12; root++) {
+    for (const mode of ['major', 'minor'] as const) {
+      const key: Key = { root, mode };
+      const score = parsed.filter((c) => isDiatonic(c, key)).length;
+      if (score > 0) candidates.push({ key, score });
+    }
+  }
+  return candidates.sort((a, b) => b.score - a.score);
+}
 
 type InputMode = 'progression' | 'key';
 type LabelMode = 'notes' | 'degrees';
@@ -39,6 +70,7 @@ interface CopyText {
   minor: string;
   detectedKey: (keyLabel: string) => string;
   noKeyDetected: string;
+  alsoFitsLabel: string;
   unrecognizedChord: (raw: string, suggestion: string | null) => string;
   nonDiatonicBadge: string;
   legendLabel: string;
@@ -107,6 +139,7 @@ const COPY: Record<Language, CopyText> = {
     minor: 'minor',
     detectedKey: (keyLabel) => `Detected key: ${keyLabel}`,
     noKeyDetected: 'No key detected yet — enter at least one recognizable chord.',
+    alsoFitsLabel: 'Also fits:',
     unrecognizedChord: (raw, suggestion) =>
       suggestion ? `"${raw}" not recognized — did you mean "${suggestion}"?` : `"${raw}" not recognized`,
     nonDiatonicBadge: 'non-diatonic',
@@ -162,6 +195,7 @@ const COPY: Record<Language, CopyText> = {
     minor: 'menor',
     detectedKey: (keyLabel) => `Tonalidad detectada: ${keyLabel}`,
     noKeyDetected: 'Aún no se detecta ninguna tonalidad — introduce al menos un acorde reconocible.',
+    alsoFitsLabel: 'También encajan:',
     unrecognizedChord: (raw, suggestion) =>
       suggestion ? `"${raw}" no reconocido — ¿quisiste decir "${suggestion}"?` : `"${raw}" no reconocido`,
     nonDiatonicBadge: 'no diatónico',
@@ -211,6 +245,10 @@ export class SoloinComponent {
   readonly mode = signal<InputMode>('progression');
   readonly progressionInput = signal('Am, F, C, G');
   readonly selectedKey = signal<Key>({ root: 0, mode: 'major' });
+  // Set only by clicking a tied alternative below the auto-detected key (see
+  // tiedKeyAlternatives) — reset whenever the progression text itself changes,
+  // since a stale override from a different progression would be meaningless.
+  readonly keyOverride = signal<Key | null>(null);
   readonly scaleOverride = signal<ScaleName | null>(null);
   readonly copied = signal(false);
 
@@ -262,8 +300,26 @@ export class SoloinComponent {
       .map((raw) => ({ raw, suggestion: suggestChordName(raw) })),
   );
 
+  readonly keyCandidates = computed<KeyCandidate[]>(() =>
+    this.mode() === 'progression' ? detectKeyCandidates(this.chordTokens()) : [],
+  );
+
+  readonly detectedKey = computed<Key | null>(() => this.keyCandidates()[0]?.key ?? null);
+
+  // Only populated when 2+ keys tie for the top score — e.g. a bare "A" chord
+  // fits C# minor, A major, D major, E major and F# minor equally well, so
+  // detectKey's pick among them is arbitrary. Surfacing the tie lets the user
+  // override it instead of silently trusting whichever one detectKey happened
+  // to land on first.
+  readonly tiedKeyAlternatives = computed<Key[]>(() => {
+    const candidates = this.keyCandidates();
+    if (candidates.length < 2 || candidates[1].score < candidates[0].score) return [];
+    const topScore = candidates[0].score;
+    return candidates.filter((c) => c.score === topScore).map((c) => c.key);
+  });
+
   readonly activeKey = computed<Key | null>(() =>
-    this.mode() === 'progression' ? detectKey(this.chordTokens()) : this.selectedKey(),
+    this.mode() === 'progression' ? (this.keyOverride() ?? this.detectedKey()) : this.selectedKey(),
   );
 
   readonly effectiveScale = computed<ScaleName>(
@@ -285,13 +341,15 @@ export class SoloinComponent {
   });
 
   readonly scaleLabels = computed<string[]>(() => {
-    if (this.labelMode() === 'degrees') return [...SCALE_DEGREE_LABELS[this.effectiveScale()]];
-    return this.scaleNotes().map((n) => noteName(n));
+    const degreeLabels = SCALE_DEGREE_LABELS[this.effectiveScale()];
+    if (this.labelMode() === 'degrees') return [...degreeLabels];
+    return this.scaleNotes().map((n, i) => spellNote(n, degreeLabels[i]));
   });
 
   private toneLabelsFor(tones: Note[], quality: ChordQuality): string[] {
-    if (this.labelMode() === 'degrees') return [...CHORD_DEGREE_LABELS[quality]];
-    return tones.map((n) => noteName(n));
+    const degreeLabels = CHORD_DEGREE_LABELS[quality];
+    if (this.labelMode() === 'degrees') return [...degreeLabels];
+    return tones.map((n, i) => spellNote(n, degreeLabels[i]));
   }
 
   readonly chordLayers = computed<ChordLayer[]>(() => {
@@ -338,10 +396,16 @@ export class SoloinComponent {
     return key ? this.keyLabel(key) : null;
   });
 
+  // Clamped separately from carouselIndex itself: the progression can shrink (e.g. editing
+  // text down to one chord) without a matching stepCarousel() call to pull the raw index back in range.
+  readonly carouselDisplayIndex = computed(() =>
+    Math.min(this.carouselIndex(), Math.max(this.chordLayers().length - 1, 0)),
+  );
+
   readonly activeChordLayer = computed<ChordLayer | null>(() => {
     const layers = this.chordLayers();
     if (layers.length === 0) return null;
-    return layers[Math.min(this.carouselIndex(), layers.length - 1)];
+    return layers[this.carouselDisplayIndex()];
   });
 
   // Image export needs exactly one unambiguous fretboard on screen: always
@@ -391,6 +455,11 @@ export class SoloinComponent {
 
   onProgressionInput(event: Event): void {
     this.progressionInput.set((event.target as HTMLInputElement).value);
+    this.keyOverride.set(null);
+  }
+
+  selectKeyOverride(key: Key): void {
+    this.keyOverride.set(key);
   }
 
   onKeyChange(event: Event): void {

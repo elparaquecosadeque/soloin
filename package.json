@@ -24,6 +24,7 @@
     "@angular/compiler": "^22.0.0",
     "@angular/core": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
+    "@gblp/music-theory": "^0.1.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
