@@ -64,100 +64,136 @@
         }
       </ul>
     }
-  } @else {
-    <div class="control">
-      <label class="control-label" for="soloin-key">{{ text().keyLabel }}</label>
-      <select id="soloin-key" class="select-input" (change)="onKeyChange($event)">
-        @for (key of allKeys; track key.root + key.mode; let i = $index) {
-          <option [value]="i">{{ keyLabel(key) }}</option>
-        }
-      </select>
-    </div>
   }
 
-  <div class="control">
-    <label class="control-label" for="soloin-scale">{{ text().scaleLabel }}</label>
-    <select id="soloin-scale" class="select-input" [value]="effectiveScale()" (change)="onScaleChange($event)">
-      @for (scale of scaleOrder; track scale) {
-        <option [value]="scale">{{ text().scaleNames[scale] }}</option>
+  <div class="controls">
+    <div class="control-grid">
+      @if (mode() === 'key') {
+        <div class="control">
+          <label class="control-label" for="soloin-key">{{ text().keyLabel }}</label>
+          <select id="soloin-key" class="select-input" (change)="onKeyChange($event)">
+            @for (key of allKeys; track key.root + key.mode; let i = $index) {
+              <option [value]="i">{{ keyLabel(key) }}</option>
+            }
+          </select>
+        </div>
       }
-    </select>
-  </div>
 
-  <div class="control">
-    <label class="control-label" for="soloin-tuning">{{ text().tuningLabel }}</label>
-    <select id="soloin-tuning" class="select-input" [value]="tuningName()" (change)="setTuning($event)">
-      @for (t of tunings; track t.name) {
-        <option [value]="t.name">{{ text().tuningNames[t.name] }}</option>
-      }
-    </select>
-  </div>
+      <div class="control">
+        <label class="control-label" for="soloin-scale">{{ text().scaleLabel }}</label>
+        <select id="soloin-scale" class="select-input" [value]="effectiveScale()" (change)="onScaleChange($event)">
+          @for (scale of scaleOrder; track scale) {
+            <option [value]="scale">{{ text().scaleNames[scale] }}</option>
+          }
+        </select>
+      </div>
 
-  <div class="view-toggle" role="tablist">
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="labelMode() === 'notes'"
-      [class.active]="labelMode() === 'notes'"
-      (click)="setLabelMode('notes')"
-    >
-      {{ text().notesLabelMode }}
-    </button>
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="labelMode() === 'degrees'"
-      [class.active]="labelMode() === 'degrees'"
-      (click)="setLabelMode('degrees')"
-    >
-      {{ text().degreesLabelMode }}
-    </button>
-  </div>
+      <div class="control">
+        <label class="control-label" for="soloin-tuning">{{ text().tuningLabel }}</label>
+        <select id="soloin-tuning" class="select-input" [value]="tuningName()" (change)="setTuning($event)">
+          @for (t of tunings; track t.name) {
+            <option [value]="t.name">{{ text().tuningNames[t.name] }}</option>
+          }
+        </select>
+      </div>
+    </div>
 
-  <div class="control">
-    <span class="control-label">{{ text().highlightLabel }}</span>
-    <div class="view-toggle" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        [attr.aria-selected]="highlightMode() === 'all'"
-        [class.active]="highlightMode() === 'all'"
-        (click)="setHighlightMode('all')"
-      >
-        {{ text().highlightAll }}
-      </button>
-      @if (isStandardTuning()) {
+    <div class="control-row">
+      <div class="view-toggle" role="tablist">
         <button
           type="button"
           role="tab"
-          [attr.aria-selected]="highlightMode() === 'caged'"
-          [class.active]="highlightMode() === 'caged'"
-          (click)="setHighlightMode('caged')"
+          [attr.aria-selected]="labelMode() === 'notes'"
+          [class.active]="labelMode() === 'notes'"
+          (click)="setLabelMode('notes')"
         >
-          {{ text().highlightCaged }}
+          {{ text().notesLabelMode }}
         </button>
-      }
-    </div>
-  </div>
+        <button
+          type="button"
+          role="tab"
+          [attr.aria-selected]="labelMode() === 'degrees'"
+          [class.active]="labelMode() === 'degrees'"
+          (click)="setLabelMode('degrees')"
+        >
+          {{ text().degreesLabelMode }}
+        </button>
+      </div>
 
-  @if (highlightMode() === 'caged' && isStandardTuning()) {
-    <div class="control">
-      <span class="control-label">{{ text().boxLabel }}</span>
-      <div class="view-toggle" role="tablist">
-        @for (shape of cagedShapes; track shape) {
+      <div class="control">
+        <span class="control-label">{{ text().highlightLabel }}</span>
+        <div class="view-toggle" role="tablist">
           <button
             type="button"
             role="tab"
-            [attr.aria-selected]="cagedShape() === shape"
-            [class.active]="cagedShape() === shape"
-            (click)="setCagedShape(shape)"
+            [attr.aria-selected]="highlightMode() === 'all'"
+            [class.active]="highlightMode() === 'all'"
+            (click)="setHighlightMode('all')"
           >
-            {{ shape }}
+            {{ text().highlightAll }}
           </button>
-        }
+          @if (isStandardTuning()) {
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="highlightMode() === 'caged'"
+              [class.active]="highlightMode() === 'caged'"
+              (click)="setHighlightMode('caged')"
+            >
+              {{ text().highlightCaged }}
+            </button>
+          }
+        </div>
       </div>
+
+      @if (mode() === 'progression' && chordLayers().length > 0) {
+        <div class="view-toggle" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="chordView() === 'mosaic'"
+            [class.active]="chordView() === 'mosaic'"
+            (click)="setChordView('mosaic')"
+          >
+            {{ text().mosaicView }}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="chordView() === 'carousel'"
+            [class.active]="chordView() === 'carousel'"
+            (click)="setChordView('carousel')"
+          >
+            {{ text().carouselView }}
+          </button>
+        </div>
+
+        <label class="scale-toggle">
+          <input type="checkbox" [checked]="showScaleNotes()" (change)="toggleScaleNotes($event)" />
+          {{ text().showScaleNotes }}
+        </label>
+      }
     </div>
-  }
+
+    @if (highlightMode() === 'caged' && isStandardTuning()) {
+      <div class="control">
+        <span class="control-label">{{ text().boxLabel }}</span>
+        <div class="view-toggle" role="tablist">
+          @for (shape of cagedShapes; track shape) {
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="cagedShape() === shape"
+              [class.active]="cagedShape() === shape"
+              (click)="setCagedShape(shape)"
+            >
+              {{ shape }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
 
   @if (mode() !== 'progression' || chordLayers().length === 0) {
     <soloin-fretboard
@@ -169,32 +205,6 @@
       [tuning]="tuning()"
     />
   } @else {
-    <div class="view-toggle" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        [attr.aria-selected]="chordView() === 'mosaic'"
-        [class.active]="chordView() === 'mosaic'"
-        (click)="setChordView('mosaic')"
-      >
-        {{ text().mosaicView }}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        [attr.aria-selected]="chordView() === 'carousel'"
-        [class.active]="chordView() === 'carousel'"
-        (click)="setChordView('carousel')"
-      >
-        {{ text().carouselView }}
-      </button>
-    </div>
-
-    <label class="scale-toggle">
-      <input type="checkbox" [checked]="showScaleNotes()" (change)="toggleScaleNotes($event)" />
-      {{ text().showScaleNotes }}
-    </label>
-
     @if (chordView() === 'mosaic') {
       <div class="mosaic">
         @for (layer of chordLayers(); track layer.label + layer.colorVar) {

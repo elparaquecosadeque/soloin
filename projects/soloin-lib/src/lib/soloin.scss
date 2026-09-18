@@ -79,6 +79,28 @@
   gap: 6px;
 }
 
+// Controls read as one compact unit: tighter gaps than the page's section rhythm.
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// Equal columns that fall to 2 then 1 on narrow widths, no media queries.
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 16px;
+}
+
+// Bottom-aligned so the labelled Highlight toggle sits level with the unlabelled ones.
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
 .control-label {
   font-size: 0.8rem;
   font-weight: 700;
@@ -170,6 +192,7 @@
   align-items: center;
   gap: 8px;
   width: fit-content;
+  min-height: 40px;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--_chords-muted);
