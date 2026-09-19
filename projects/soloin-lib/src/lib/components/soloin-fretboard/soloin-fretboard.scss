@@ -6,6 +6,9 @@
   --_chords-text: var(--chords-text, #1e293b);
   --_chords-muted: var(--chords-muted, #64748b);
   --_chords-on-primary: var(--chords-on-primary, #ffffff);
+  // Fixed dark ink for labels on the preview colour: white-on-cyan (light theme) fails
+  // contrast, while near-black reads on both the cyan and the neon magenta secondary.
+  --_chords-preview-ink: var(--chords-preview-ink, #0b1020);
   --_chords-chord-color-1: var(--chords-chord-color-1, var(--chords-primary, #3b82f6));
   --_chords-scale-note: var(--chords-scale-note, color-mix(in srgb, var(--_chords-muted) 55%, var(--_chords-chord-color-1)));
   --_chords-chord-color-2: var(--chords-chord-color-2, var(--chords-secondary, #06b6d4));
@@ -34,4 +37,32 @@
 // renders identically to the live view instead of falling back to browser defaults.
 .dot-label {
   pointer-events: none;
+}
+
+.position-dot,
+.position .dot-label {
+  transition:
+    fill 120ms ease,
+    fill-opacity 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .position-dot,
+  .position .dot-label {
+    transition: none;
+  }
+}
+
+.position {
+  cursor: pointer;
+  outline: none;
+
+  &:not(.selected):hover .position-dot {
+    fill-opacity: 0.75;
+  }
+
+  &:focus-visible .position-dot {
+    stroke: var(--_chords-text);
+    stroke-width: 3;
+  }
 }

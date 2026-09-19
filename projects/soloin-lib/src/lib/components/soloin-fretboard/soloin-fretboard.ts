@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, input, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, input, output, viewChild } from '@angular/core';
 import { type Note, mod12, noteName } from '@gblp/music-theory';
 import type { FretRange } from './caged';
 import { type Tuning, TUNINGS } from './tunings';
@@ -20,6 +20,27 @@ interface RenderDot {
   label: string;
   isRoot: boolean;
 }
+
+// One clickable fret position in `selectable` mode.
+export interface FretPosition {
+  string: number; // 0 = highest-pitched string (top row)
+  fret: number;
+  pc: Note;
+}
+
+interface SelectableDot {
+  key: string;
+  position: FretPosition;
+  x: number;
+  y: number;
+  label: string;
+  selected: boolean;
+  inPreview: boolean; // in the previewed scale (only meaningful while a preview is active)
+  isPreviewRoot: boolean;
+  ariaLabel: string;
+}
+
+export const fretPositionKey = (string: number, fret: number): string => `${string}:${fret}`;
 
 // Always 6 strings, high string first (top row) to low string last (bottom
 // row) — matches the visual convention of a fretboard diagram. Which pitch
@@ -66,6 +87,21 @@ export class SoloinFretboard {
   readonly tuning = input<Tuning>(TUNINGS[0]);
   readonly ariaLabel = input('Fretboard');
 
+  // Selectable mode: every position is drawn as a dimmed, focusable note; a click
+  // (or Enter/Space) toggles that exact position and emits it. The parent owns the
+  // selected set (keys from fretPositionKey), so it can persist or analyse it.
+  readonly selectable = input(false);
+  readonly selectedPositions = input<ReadonlySet<string>>(new Set());
+  readonly positionToggled = output<FretPosition>();
+  // Selectable mode only: light up the notes of a scale being previewed (every octave),
+  // ring its root and fade everything else. Empty = no preview.
+  readonly previewNotes = input<Note[]>([]);
+  readonly previewRoot = input<Note | null>(null);
+  readonly previewActive = computed(() => this.previewNotes().length > 0);
+  readonly positionAriaLabel = input<(note: string, stringNote: string, fret: number) => string>(
+    (note, stringNote, fret) => `${note}, ${stringNote} string, fret ${fret}`,
+  );
+
   readonly svgRef = viewChild.required<ElementRef<SVGSVGElement>>('svg');
 
   readonly fontFamily = FRETBOARD_FONT;
@@ -85,6 +121,35 @@ export class SoloinFretboard {
   readonly positionMarkers = POSITION_MARKERS;
 
   readonly strings = computed(() => this.tuning().strings.map((openPc, si) => ({ label: noteName(openPc), y: dotY(si) })));
+
+  readonly selectableDots = computed((): SelectableDot[] => {
+    if (!this.selectable()) return [];
+    const selected = this.selectedPositions();
+    const previewSet = new Set(this.previewNotes());
+    const previewRoot = this.previewRoot();
+    return this.tuning().strings.flatMap((openPc, si) =>
+      Array.from({ length: FRETS + 1 }, (_, f) => {
+        const pc = mod12(openPc + f);
+        const key = fretPositionKey(si, f);
+        const label = noteName(pc);
+        return {
+          key,
+          position: { string: si, fret: f, pc },
+          x: dotX(f),
+          y: dotY(si),
+          label,
+          selected: selected.has(key),
+          inPreview: previewSet.has(pc),
+          isPreviewRoot: previewRoot !== null && pc === previewRoot,
+          ariaLabel: this.positionAriaLabel()(label, noteName(openPc), f),
+        };
+      }),
+    );
+  });
+
+  togglePosition(position: FretPosition): void {
+    this.positionToggled.emit(position);
+  }
 
   // ponytail: readability degrades past ~3 overlapping chord layers at one
   // fret/string (rings nest inward); fine for typical 3-4 chord progressions.

@@ -1,4 +1,4 @@
-import { Component, computed, input, signal, viewChildren } from '@angular/core';
+import { Component, computed, HostListener, input, signal, viewChildren } from '@angular/core';
 import {
   buildChordTones,
   buildScale,
@@ -7,6 +7,7 @@ import {
   isDiatonic,
   type Key,
   type Note,
+  mod12,
   noteName,
   type ParsedChord,
   parseChordName,
@@ -14,9 +15,15 @@ import {
   suggestChordName,
   type ScaleName,
 } from '@gblp/music-theory';
-import { SoloinFretboard, type ChordLayer } from './components/soloin-fretboard/soloin-fretboard';
+import {
+  fretPositionKey,
+  type FretPosition,
+  SoloinFretboard,
+  type ChordLayer,
+} from './components/soloin-fretboard/soloin-fretboard';
 import { CAGED_SHAPES, type CagedShape, cagedBoxRange, type FretRange } from './components/soloin-fretboard/caged';
 import { findTuning, TUNINGS, type Tuning, type TuningName } from './components/soloin-fretboard/tunings';
+import { IDENTIFY_MIN_NOTES, identifyScales, type IdentifyGroup, type IdentifyMatch } from './identify';
 
 export type Language = 'en' | 'es';
 
@@ -52,7 +59,7 @@ function detectKeyCandidates(chordNames: string[]): KeyCandidate[] {
   return candidates.sort((a, b) => b.score - a.score);
 }
 
-type InputMode = 'progression' | 'key';
+type InputMode = 'progression' | 'key' | 'identify';
 type LabelMode = 'notes' | 'degrees';
 type HighlightMode = 'all' | 'caged';
 
@@ -61,6 +68,20 @@ interface CopyText {
   subtitle: string;
   progressionModeLabel: string;
   keyModeLabel: string;
+  identifyModeLabel: string;
+  identifyClear: string;
+  identifyNeedMore: (count: number, min: number) => string;
+  identifySelected: (notes: string) => string;
+  identifyNoMatch: string;
+  identifyChordsLabel: string;
+  identifyChordsPlaceholder: string;
+  identifySuggestedHint: string;
+  identifyTouchHint: string;
+  identifyFretboardLabel: string;
+  identifyPositionLabel: (note: string, stringNote: string, fret: number) => string;
+  identifyNoteCount: (count: number) => string;
+  identifyApply: string;
+  identifyResultsLabel: string;
   progressionLabel: string;
   placeholder: string;
   keyLabel: string;
@@ -108,6 +129,22 @@ const SCALE_ORDER: ScaleName[] = [
   'blues',
 ];
 
+// Scales that, when found in a group, name the group (the relative keys for a 7-note
+// set, otherwise the pentatonic/blues pair) — the rest are shown as its modes.
+const IDENTIFY_HEADLINE_SCALES: ScaleName[] = ['ionian', 'aeolian', 'majorPentatonic', 'minorPentatonic', 'blues'];
+
+// A scale's own root is what drives the highlighted notes (see scaleNotes), so the
+// Key select only needs a major/minor flavour close to the scale's character.
+const MINOR_FLAVOURED_SCALES = new Set<ScaleName>(['dorian', 'phrygian', 'aeolian', 'locrian', 'minorPentatonic', 'blues']);
+
+export interface IdentifyGroupView {
+  id: string;
+  headline: string;
+  noteCount: string;
+  noteNames: string;
+  chips: { match: IdentifyMatch; label: string; suggested: boolean }[];
+}
+
 const ALL_KEYS: Key[] = Array.from({ length: 24 }, (_, i) => ({
   root: Math.floor(i / 2),
   mode: i % 2 === 0 ? 'major' : 'minor',
@@ -119,6 +156,21 @@ const COPY: Record<Language, CopyText> = {
     subtitle: 'Find the scales that fit your progression and see exactly which notes to target.',
     progressionModeLabel: 'Progression',
     keyModeLabel: 'Key',
+    identifyModeLabel: 'Identify',
+    identifyClear: 'Clear',
+    identifyNeedMore: (count, min) =>
+      `Mark at least ${min} different notes on the fretboard, or add chords (${count}/${min}).`,
+    identifySelected: (notes) => `Notes considered: ${notes}`,
+    identifyNoMatch: 'No scale contains all the marked notes and chord tones. Try removing a note or a chord.',
+    identifyChordsLabel: 'Chords you solo over (optional)',
+    identifyChordsPlaceholder: 'e.g. Cm, Fm, G7 — some or all',
+    identifySuggestedHint: 'Rooted on your first chord',
+    identifyTouchHint: 'Tap once to preview on the fretboard, tap again to apply.',
+    identifyFretboardLabel: 'Fretboard — mark the notes you hear',
+    identifyPositionLabel: (note, stringNote, fret) => `${note}, ${stringNote} string, fret ${fret}`,
+    identifyNoteCount: (count) => `${count} notes`,
+    identifyApply: 'Show in Key mode',
+    identifyResultsLabel: 'Scales that fit',
     progressionLabel: 'Chord progression',
     placeholder: 'e.g. Am, F, C, G',
     keyLabel: 'Key',
@@ -175,6 +227,21 @@ const COPY: Record<Language, CopyText> = {
     subtitle: 'Encuentra las escalas que encajan con tu progresión y ve exactamente qué notas tocar.',
     progressionModeLabel: 'Progresión',
     keyModeLabel: 'Tonalidad',
+    identifyModeLabel: 'Identificar',
+    identifyClear: 'Limpiar',
+    identifyNeedMore: (count, min) =>
+      `Marca al menos ${min} notas distintas en el diapasón, o agrega acordes (${count}/${min}).`,
+    identifySelected: (notes) => `Notas consideradas: ${notes}`,
+    identifyNoMatch: 'Ninguna escala contiene todas las notas marcadas y las notas de los acordes. Prueba quitando una nota o un acorde.',
+    identifyChordsLabel: 'Acordes sobre los que improvisas (opcional)',
+    identifyChordsPlaceholder: 'ej. Cm, Fm, G7 — algunos o todos',
+    identifySuggestedHint: 'Con raíz en tu primer acorde',
+    identifyTouchHint: 'Toca una vez para previsualizar en el diapasón, otra vez para aplicar.',
+    identifyFretboardLabel: 'Diapasón — marca las notas que escuchas',
+    identifyPositionLabel: (note, stringNote, fret) => `${note}, cuerda ${stringNote}, traste ${fret}`,
+    identifyNoteCount: (count) => `${count} notas`,
+    identifyApply: 'Ver en modo Tonalidad',
+    identifyResultsLabel: 'Escalas que encajan',
     progressionLabel: 'Progresión de acordes',
     placeholder: 'ej. Am, F, C, G',
     keyLabel: 'Tonalidad',
@@ -252,6 +319,25 @@ export class SoloinComponent {
   readonly scaleOverride = signal<ScaleName | null>(null);
   readonly copied = signal(false);
 
+  // Identify mode: the exact fret positions the user marked (keys from
+  // fretPositionKey). Kept here, not in the fretboard, so it survives leaving the
+  // tab and can be read by whatever wants to persist it later.
+  readonly identifyMarks = signal<ReadonlySet<string>>(new Set());
+  // Optional extra evidence: the chords the solo is played over. Every tone of every
+  // chord written here must fit a candidate scale, on top of the marked notes.
+  readonly identifyChordsInput = signal('');
+  // The result chip being previewed on the fretboard (hover / focus, or pinned by a
+  // first touch). Always cleared whenever the results it came from can change.
+  readonly identifyPreview = signal<IdentifyMatch | null>(null);
+  readonly identifyPreviewNotes = computed<Note[]>(() => {
+    const preview = this.identifyPreview();
+    return preview ? buildScale(preview.root, preview.scale) : [];
+  });
+  readonly identifyPreviewRoot = computed<Note | null>(() => this.identifyPreview()?.root ?? null);
+  // Recorded on pointerdown: a touch lands as pointerdown -> focus -> click, and focus
+  // already sets the preview, so "was it previewed BEFORE this tap?" must be captured first.
+  private chipPointer: { type: string; wasPreviewed: boolean } | null = null;
+
   readonly chordView = signal<'mosaic' | 'carousel'>('mosaic');
   readonly carouselIndex = signal(0);
   // Off by default: a chord's own tones are what "belongs" to it. The scale
@@ -320,6 +406,64 @@ export class SoloinComponent {
 
   readonly activeKey = computed<Key | null>(() =>
     this.mode() === 'progression' ? (this.keyOverride() ?? this.detectedKey()) : this.selectedKey(),
+  );
+
+  readonly selectedKeyIndex = computed(() =>
+    this.allKeys.findIndex((k) => k.root === this.selectedKey().root && k.mode === this.selectedKey().mode),
+  );
+
+  // Marked positions -> pitch classes, through the CURRENT tuning, so switching
+  // tuning re-reads every mark as the note it now sits on.
+  readonly identifyNotes = computed<Note[]>(() => {
+    const strings = this.tuning().strings;
+    const notes = new Set<Note>();
+    for (const key of this.identifyMarks()) {
+      const [s, f] = key.split(':').map(Number);
+      if (strings[s] !== undefined) notes.add(mod12(strings[s] + f));
+    }
+    return [...notes].sort((a, b) => a - b);
+  });
+
+  private readonly identifyChordTokens = computed(() =>
+    this.identifyChordsInput()
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+
+  readonly identifyChords = computed<ParsedChord[]>(() =>
+    this.identifyChordTokens()
+      .map(parseChordName)
+      .filter((c): c is ParsedChord => c !== null),
+  );
+
+  readonly identifyUnparsedChords = computed<{ raw: string; suggestion: string | null }[]>(() =>
+    this.identifyChordTokens()
+      .filter((t) => parseChordName(t) === null)
+      .map((raw) => ({ raw, suggestion: suggestChordName(raw) })),
+  );
+
+  // Marked notes plus every tone of every chord — the full set a scale must contain.
+  readonly identifyAllNotes = computed<Note[]>(() => {
+    const notes = new Set<Note>(this.identifyNotes());
+    for (const chord of this.identifyChords()) {
+      for (const tone of buildChordTones(chord.root, chord.quality)) notes.add(tone);
+    }
+    return [...notes].sort((a, b) => a - b);
+  });
+
+  readonly identifyHint = computed(() => {
+    const t = this.text();
+    const notes = this.identifyAllNotes();
+    return notes.length < IDENTIFY_MIN_NOTES
+      ? t.identifyNeedMore(notes.length, IDENTIFY_MIN_NOTES)
+      : t.identifySelected(notes.map((n) => noteName(n)).join(', '));
+  });
+
+  readonly identifyEnoughNotes = computed(() => this.identifyAllNotes().length >= IDENTIFY_MIN_NOTES);
+
+  readonly identifyGroups = computed<IdentifyGroupView[]>(() =>
+    identifyScales(this.identifyAllNotes(), SCALE_ORDER).map((group) => this.identifyGroupView(group)),
   );
 
   readonly effectiveScale = computed<ScaleName>(
@@ -421,7 +565,115 @@ export class SoloinComponent {
   }
 
   setMode(mode: InputMode): void {
+    this.identifyPreview.set(null);
     this.mode.set(mode);
+  }
+
+  isPreviewing(match: IdentifyMatch): boolean {
+    const preview = this.identifyPreview();
+    return preview !== null && preview.root === match.root && preview.scale === match.scale;
+  }
+
+  onChipPointerEnter(match: IdentifyMatch, event: PointerEvent): void {
+    if (event.pointerType === 'mouse') this.identifyPreview.set(match);
+  }
+
+  onChipPointerLeave(match: IdentifyMatch, event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && this.isPreviewing(match)) this.identifyPreview.set(null);
+  }
+
+  onChipFocus(match: IdentifyMatch): void {
+    this.identifyPreview.set(match);
+  }
+
+  onChipBlur(match: IdentifyMatch): void {
+    if (this.isPreviewing(match)) this.identifyPreview.set(null);
+  }
+
+  onChipPointerDown(match: IdentifyMatch, event: PointerEvent): void {
+    this.chipPointer = { type: event.pointerType, wasPreviewed: this.isPreviewing(match) };
+  }
+
+  // Mouse and keyboard apply straight away. A touch/pen tap on a chip that wasn't
+  // already previewed only previews it; tapping the previewed chip again applies.
+  onChipClick(match: IdentifyMatch): void {
+    const pointer = this.chipPointer;
+    this.chipPointer = null;
+    if (pointer && pointer.type !== 'mouse' && !pointer.wasPreviewed) {
+      this.identifyPreview.set(match);
+      return;
+    }
+    this.applyIdentifyMatch(match);
+  }
+
+  // Some touch browsers (iOS Safari) don't focus a tapped button, so blur alone can't
+  // dismiss a pinned preview: any press outside the chips does.
+  @HostListener('document:pointerdown', ['$event'])
+  onDocumentPointerDown(event: PointerEvent): void {
+    if (this.identifyPreview() && !(event.target as Element | null)?.closest?.('.identify-chip')) {
+      this.identifyPreview.set(null);
+    }
+  }
+
+  toggleIdentifyPosition(position: FretPosition): void {
+    this.identifyPreview.set(null);
+    const key = fretPositionKey(position.string, position.fret);
+    this.identifyMarks.update((marks) => {
+      const next = new Set(marks);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }
+
+  clearIdentifyMarks(): void {
+    this.identifyPreview.set(null);
+    this.identifyMarks.set(new Set());
+  }
+
+  onIdentifyChordsInput(event: Event): void {
+    this.identifyPreview.set(null);
+    this.identifyChordsInput.set((event.target as HTMLInputElement).value);
+  }
+
+  // Leaves Identify for the normal Key view with the picked root/scale applied;
+  // tuning and the marks are left as they are.
+  applyIdentifyMatch(match: IdentifyMatch): void {
+    this.identifyPreview.set(null);
+    this.selectedKey.set({ root: match.root, mode: MINOR_FLAVOURED_SCALES.has(match.scale) ? 'minor' : 'major' });
+    this.scaleOverride.set(match.scale);
+    this.mode.set('key');
+  }
+
+  private matchLabel(match: IdentifyMatch): string {
+    return `${noteName(match.root)} ${this.text().scaleNames[match.scale]}`;
+  }
+
+  private identifyGroupView(group: IdentifyGroup): IdentifyGroupView {
+    const t = this.text();
+    const headline = group.matches
+      .filter((m) => IDENTIFY_HEADLINE_SCALES.includes(m.scale))
+      .map((m) => {
+        if (m.scale === 'ionian') return this.keyLabel({ root: m.root, mode: 'major' });
+        if (m.scale === 'aeolian') return this.keyLabel({ root: m.root, mode: 'minor' });
+        return this.matchLabel(m);
+      })
+      .join(' / ');
+    // The first chord is the likeliest tonal centre: the mode rooted on it goes
+    // first and is flagged, the rest keep their order.
+    const homeRoot = this.identifyChords()[0]?.root;
+    const chips = group.matches.map((match) => ({
+      match,
+      label: this.matchLabel(match),
+      suggested: homeRoot !== undefined && match.root === homeRoot,
+    }));
+    chips.sort((a, b) => Number(b.suggested) - Number(a.suggested));
+    return {
+      id: group.notes.join(','),
+      headline,
+      noteCount: t.identifyNoteCount(group.notes.length),
+      noteNames: group.notes.map((n) => noteName(n)).join(' '),
+      chips,
+    };
   }
 
   setChordView(view: 'mosaic' | 'carousel'): void {
@@ -437,6 +689,7 @@ export class SoloinComponent {
   }
 
   setTuning(event: Event): void {
+    this.identifyPreview.set(null);
     this.tuningName.set((event.target as HTMLSelectElement).value as TuningName);
   }
 

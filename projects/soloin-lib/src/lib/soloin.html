@@ -23,6 +23,15 @@
     >
       {{ text().keyModeLabel }}
     </button>
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="mode() === 'identify'"
+      [class.active]="mode() === 'identify'"
+      (click)="setMode('identify')"
+    >
+      {{ text().identifyModeLabel }}
+    </button>
   </div>
 
   @if (mode() === 'progression') {
@@ -73,20 +82,22 @@
           <label class="control-label" for="soloin-key">{{ text().keyLabel }}</label>
           <select id="soloin-key" class="select-input" (change)="onKeyChange($event)">
             @for (key of allKeys; track key.root + key.mode; let i = $index) {
-              <option [value]="i">{{ keyLabel(key) }}</option>
+              <option [value]="i" [selected]="i === selectedKeyIndex()">{{ keyLabel(key) }}</option>
             }
           </select>
         </div>
       }
 
-      <div class="control">
-        <label class="control-label" for="soloin-scale">{{ text().scaleLabel }}</label>
-        <select id="soloin-scale" class="select-input" [value]="effectiveScale()" (change)="onScaleChange($event)">
-          @for (scale of scaleOrder; track scale) {
-            <option [value]="scale">{{ text().scaleNames[scale] }}</option>
-          }
-        </select>
-      </div>
+      @if (mode() !== 'identify') {
+        <div class="control">
+          <label class="control-label" for="soloin-scale">{{ text().scaleLabel }}</label>
+          <select id="soloin-scale" class="select-input" (change)="onScaleChange($event)">
+            @for (scale of scaleOrder; track scale) {
+              <option [value]="scale" [selected]="scale === effectiveScale()">{{ text().scaleNames[scale] }}</option>
+            }
+          </select>
+        </div>
+      }
 
       <div class="control">
         <label class="control-label" for="soloin-tuning">{{ text().tuningLabel }}</label>
@@ -98,6 +109,7 @@
       </div>
     </div>
 
+    @if (mode() !== 'identify') {
     <div class="control-row">
       <div class="view-toggle" role="tablist">
         <button
@@ -193,9 +205,87 @@
         </div>
       </div>
     }
+    }
   </div>
 
-  @if (mode() !== 'progression' || chordLayers().length === 0) {
+  @if (mode() === 'identify') {
+    <div class="identify">
+      <div class="control">
+        <label class="control-label" for="soloin-identify-chords">{{ text().identifyChordsLabel }}</label>
+        <input
+          id="soloin-identify-chords"
+          class="text-input"
+          type="text"
+          [value]="identifyChordsInput()"
+          (input)="onIdentifyChordsInput($event)"
+          [placeholder]="text().identifyChordsPlaceholder"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      @if (identifyUnparsedChords().length > 0) {
+        <ul class="chord-warnings identify-warnings">
+          @for (item of identifyUnparsedChords(); track item.raw) {
+            <li>{{ text().unrecognizedChord(item.raw, item.suggestion) }}</li>
+          }
+        </ul>
+      }
+
+      <div class="identify-toolbar">
+        <p class="identify-hint" aria-live="polite">{{ identifyHint() }}</p>
+        <button type="button" class="identify-clear" (click)="clearIdentifyMarks()" [disabled]="identifyMarks().size === 0">
+          {{ text().identifyClear }}
+        </button>
+      </div>
+
+      <soloin-fretboard
+        [scaleNotes]="[]"
+        [selectable]="true"
+        [selectedPositions]="identifyMarks()"
+        (positionToggled)="toggleIdentifyPosition($event)"
+        [positionAriaLabel]="text().identifyPositionLabel"
+        [previewNotes]="identifyPreviewNotes()"
+        [previewRoot]="identifyPreviewRoot()"
+        [tuning]="tuning()"
+        [ariaLabel]="text().identifyFretboardLabel"
+      />
+
+      @if (identifyEnoughNotes()) {
+        @if (identifyGroups().length === 0) {
+          <p class="identify-empty">{{ text().identifyNoMatch }}</p>
+        } @else {
+          <p class="identify-touch-hint">{{ text().identifyTouchHint }}</p>
+          <div class="identify-results" role="list" [attr.aria-label]="text().identifyResultsLabel">
+            @for (group of identifyGroups(); track group.id) {
+              <section class="identify-group" role="listitem">
+                <h3 class="identify-group-title">{{ group.headline }}</h3>
+                <p class="identify-group-meta">{{ group.noteCount }} · {{ group.noteNames }}</p>
+                <div class="identify-chips">
+                  @for (chip of group.chips; track chip.label) {
+                    <button
+                      type="button"
+                      class="identify-chip"
+                      [class.suggested]="chip.suggested"
+                      [class.previewing]="isPreviewing(chip.match)"
+                      [title]="chip.suggested ? text().identifySuggestedHint + ' — ' + text().identifyApply : text().identifyApply"
+                      (pointerenter)="onChipPointerEnter(chip.match, $event)"
+                      (pointerleave)="onChipPointerLeave(chip.match, $event)"
+                      (pointerdown)="onChipPointerDown(chip.match, $event)"
+                      (focus)="onChipFocus(chip.match)"
+                      (blur)="onChipBlur(chip.match)"
+                      (click)="onChipClick(chip.match)"
+                    >
+                      {{ chip.label }}
+                    </button>
+                  }
+                </div>
+              </section>
+            }
+          </div>
+        }
+      }
+    </div>
+  } @else if (mode() !== 'progression' || chordLayers().length === 0) {
     <soloin-fretboard
       [scaleNotes]="scaleNotes()"
       [scaleLabels]="scaleLabels()"
@@ -268,6 +358,7 @@
     </div>
   }
 
+  @if (mode() !== 'identify') {
   <div class="actions">
     <button type="button" (click)="exportPng()" [disabled]="!canExportImage()" [title]="canExportImage() ? '' : text().exportUnavailable">
       {{ text().exportPng }}
@@ -277,4 +368,5 @@
     </button>
     <button type="button" (click)="copyAsText()">{{ copied() ? text().copied : text().copyText }}</button>
   </div>
+  }
 </div>

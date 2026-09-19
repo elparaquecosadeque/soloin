@@ -203,6 +203,128 @@
   }
 }
 
+.identify {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.identify-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.identify-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--_chords-muted);
+}
+
+.identify-clear {
+  padding: 6px 14px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 8px;
+  background: var(--_chords-surface);
+  color: var(--_chords-text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--_chords-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.identify-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--_chords-danger);
+}
+
+.identify-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.identify-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--_chords-surface);
+  border: 1px solid var(--_chords-border);
+  border-radius: 10px;
+}
+
+.identify-group-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.identify-group-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--_chords-muted);
+}
+
+.identify-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.identify-warnings {
+  margin-top: -6px;
+}
+
+.identify-chip.suggested {
+  border-color: var(--_chords-primary);
+  border-width: 2px;
+  padding: 3px 11px;
+}
+
+.identify-chip {
+  padding: 4px 12px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--_chords-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:focus-visible,
+  &.previewing {
+    background: var(--_chords-primary);
+    border-color: var(--_chords-primary);
+    color: var(--_chords-on-primary);
+    outline: none;
+  }
+}
+
+// Only shown where there is no hover: there a first tap previews and a second applies.
+.identify-touch-hint {
+  display: none;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--_chords-muted);
+
+  @media (hover: none) {
+    display: block;
+  }
+}
+
 .mosaic {
   display: flex;
   flex-direction: column;

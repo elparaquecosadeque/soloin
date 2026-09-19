@@ -49,6 +49,52 @@
       >{{ fn.label }}</text>
     }
 
+    <!-- selectable positions -->
+    @for (p of selectableDots(); track p.key) {
+      <g
+        class="position"
+        [class.selected]="p.selected"
+        role="button"
+        tabindex="0"
+        [attr.aria-pressed]="p.selected"
+        [attr.aria-label]="p.ariaLabel"
+        (click)="togglePosition(p.position)"
+        (keydown.enter)="togglePosition(p.position)"
+        (keydown.space)="$event.preventDefault(); togglePosition(p.position)"
+      >
+        <circle class="position-hit" [attr.cx]="p.x" [attr.cy]="p.y" r="20" fill="transparent" />
+        @if (p.selected) {
+          <circle [attr.cx]="p.x" [attr.cy]="p.y" r="17" fill="none" stroke="var(--_chords-chord-color-1)" stroke-width="2" />
+        } @else if (previewActive() && p.isPreviewRoot) {
+          <circle [attr.cx]="p.x" [attr.cy]="p.y" r="17" fill="none" stroke="var(--_chords-chord-color-2)" stroke-width="2" />
+        }
+        @if (!p.selected) {
+          <!-- opaque base so the string line doesn't show through the dimmed dot and strike out its label -->
+          <circle [attr.cx]="p.x" [attr.cy]="p.y" r="13" fill="var(--_chords-background, transparent)" />
+        }
+        <circle
+          class="position-dot"
+          [attr.cx]="p.x"
+          [attr.cy]="p.y"
+          r="13"
+          [attr.fill]="p.selected ? 'var(--_chords-chord-color-1)' : previewActive() && p.inPreview ? 'var(--_chords-chord-color-2)' : 'var(--_chords-scale-note)'"
+          [attr.fill-opacity]="p.selected ? 1 : previewActive() ? (p.inPreview ? 1 : 0.15) : 0.4"
+        />
+        <text
+          class="dot-label"
+          [attr.x]="p.x"
+          [attr.y]="p.y"
+          text-anchor="middle"
+          dominant-baseline="central"
+          [attr.font-family]="fontFamily"
+          font-size="11"
+          font-weight="800"
+          [attr.fill]="p.selected ? 'var(--_chords-on-primary)' : previewActive() && p.inPreview ? 'var(--_chords-preview-ink, #0b1020)' : 'var(--_chords-text)'"
+          [attr.fill-opacity]="!p.selected && previewActive() && !p.inPreview ? 0.35 : 1"
+        >{{ p.label }}</text>
+      </g>
+    }
+
     <!-- notes -->
     @for (dot of dots(); track dot.x + '-' + dot.y + '-' + dot.colorVar) {
       @if (dot.isRoot) {
