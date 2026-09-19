@@ -223,7 +223,44 @@
   color: var(--_chords-muted);
 }
 
-.identify-clear {
+.mark-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.mark-toggle {
+  padding: 6px 14px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 8px;
+  background: var(--_chords-surface);
+  color: var(--_chords-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--_chords-primary);
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--_chords-primary);
+    border-color: var(--_chords-primary);
+    color: var(--_chords-on-primary);
+  }
+}
+
+.mark-hint {
+  flex: 1;
+  min-width: 12ch;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--_chords-muted);
+}
+
+.identify-clear,
+.mark-clear {
   padding: 6px 14px;
   border: 1px solid var(--_chords-border);
   border-radius: 8px;

@@ -98,6 +98,29 @@ export class SoloinFretboard {
   readonly previewNotes = input<Note[]>([]);
   readonly previewRoot = input<Note | null>(null);
   readonly previewActive = computed(() => this.previewNotes().length > 0);
+
+  // User marks. In selectable mode they are the selected positions (above); in the
+  // normal read-only view, `markedPositions` draws them on top of the notes. The
+  // 'highlight' variant keeps them distinct from the scale dots and the tonic triad
+  // (which use the primary colour).
+  readonly markedPositions = input<ReadonlySet<string>>(new Set());
+  readonly markVariant = input<'primary' | 'highlight'>('primary');
+  readonly markColor = computed(() =>
+    this.markVariant() === 'highlight' ? 'var(--_chords-chord-color-3)' : 'var(--_chords-chord-color-1)',
+  );
+  readonly markInk = computed(() =>
+    this.markVariant() === 'highlight' ? 'var(--_chords-preview-ink, #0b1020)' : 'var(--_chords-on-primary)',
+  );
+
+  readonly marks = computed(() => {
+    if (this.selectable()) return [];
+    const strings = this.tuning().strings;
+    return [...this.markedPositions()].flatMap((key) => {
+      const [s, f] = key.split(':').map(Number);
+      if (!Number.isInteger(s) || !Number.isInteger(f) || strings[s] === undefined || f < 0 || f > FRETS) return [];
+      return [{ key, x: dotX(f), y: dotY(s), label: noteName(mod12(strings[s] + f)) }];
+    });
+  });
   readonly positionAriaLabel = input<(note: string, stringNote: string, fret: number) => string>(
     (note, stringNote, fret) => `${note}, ${stringNote} string, fret ${fret}`,
   );

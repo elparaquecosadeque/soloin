@@ -64,7 +64,7 @@
       >
         <circle class="position-hit" [attr.cx]="p.x" [attr.cy]="p.y" r="20" fill="transparent" />
         @if (p.selected) {
-          <circle [attr.cx]="p.x" [attr.cy]="p.y" r="17" fill="none" stroke="var(--_chords-chord-color-1)" stroke-width="2" />
+          <circle [attr.cx]="p.x" [attr.cy]="p.y" r="17" fill="none" [attr.stroke]="markColor()" stroke-width="2" />
         } @else if (previewActive() && p.isPreviewRoot) {
           <circle [attr.cx]="p.x" [attr.cy]="p.y" r="17" fill="none" stroke="var(--_chords-chord-color-2)" stroke-width="2" />
         }
@@ -77,7 +77,7 @@
           [attr.cx]="p.x"
           [attr.cy]="p.y"
           r="13"
-          [attr.fill]="p.selected ? 'var(--_chords-chord-color-1)' : previewActive() && p.inPreview ? 'var(--_chords-chord-color-2)' : 'var(--_chords-scale-note)'"
+          [attr.fill]="p.selected ? markColor() : previewActive() && p.inPreview ? 'var(--_chords-chord-color-2)' : 'var(--_chords-scale-note)'"
           [attr.fill-opacity]="p.selected ? 1 : previewActive() ? (p.inPreview ? 1 : 0.15) : 0.4"
         />
         <text
@@ -89,7 +89,7 @@
           [attr.font-family]="fontFamily"
           font-size="11"
           font-weight="800"
-          [attr.fill]="p.selected ? 'var(--_chords-on-primary)' : previewActive() && p.inPreview ? 'var(--_chords-preview-ink, #0b1020)' : 'var(--_chords-text)'"
+          [attr.fill]="p.selected ? markInk() : previewActive() && p.inPreview ? 'var(--_chords-preview-ink, #0b1020)' : 'var(--_chords-text)'"
           [attr.fill-opacity]="!p.selected && previewActive() && !p.inPreview ? 0.35 : 1"
         >{{ p.label }}</text>
       </g>
@@ -121,6 +121,23 @@
           fill="var(--_chords-on-primary)"
         >{{ dot.label }}</text>
       }
+    }
+
+    <!-- user marks (read-only view) -->
+    @for (m of marks(); track m.key) {
+      <circle [attr.cx]="m.x" [attr.cy]="m.y" r="18" fill="none" [attr.stroke]="markColor()" stroke-width="3" />
+      <circle [attr.cx]="m.x" [attr.cy]="m.y" r="13" [attr.fill]="markColor()" />
+      <text
+        [attr.x]="m.x"
+        [attr.y]="m.y"
+        class="dot-label"
+        text-anchor="middle"
+        dominant-baseline="central"
+        [attr.font-family]="fontFamily"
+        font-size="11"
+        font-weight="800"
+        [attr.fill]="markInk()"
+      >{{ m.label }}</text>
     }
   </svg>
 </div>

@@ -101,9 +101,9 @@
 
       <div class="control">
         <label class="control-label" for="soloin-tuning">{{ text().tuningLabel }}</label>
-        <select id="soloin-tuning" class="select-input" [value]="tuningName()" (change)="setTuning($event)">
+        <select id="soloin-tuning" class="select-input" (change)="setTuning($event)">
           @for (t of tunings; track t.name) {
-            <option [value]="t.name">{{ text().tuningNames[t.name] }}</option>
+            <option [value]="t.name" [selected]="t.name === tuningName()">{{ text().tuningNames[t.name] }}</option>
           }
         </select>
       </div>
@@ -186,6 +186,20 @@
         </label>
       }
     </div>
+
+    @if (mode() === 'key') {
+      <div class="mark-row">
+        <button type="button" class="mark-toggle" [attr.aria-pressed]="keyMarkMode()" (click)="toggleKeyMarkMode()">
+          {{ text().markToggle }}
+        </button>
+        <p class="mark-hint" aria-live="polite">
+          {{ keyMarkMode() ? text().markHintEditing(keyMarks().size) : keyMarks().size > 0 ? text().markCount(keyMarks().size) : '' }}
+        </p>
+        <button type="button" class="mark-clear" (click)="clearKeyMarks()" [disabled]="keyMarks().size === 0">
+          {{ text().markClear }}
+        </button>
+      </div>
+    }
 
     @if (highlightMode() === 'caged' && isStandardTuning()) {
       <div class="control">
@@ -287,12 +301,20 @@
     </div>
   } @else if (mode() !== 'progression' || chordLayers().length === 0) {
     <soloin-fretboard
-      [scaleNotes]="scaleNotes()"
-      [scaleLabels]="scaleLabels()"
-      [scaleRoot]="activeKey()?.root ?? null"
-      [chordLayers]="keyTonicLayer() ? [keyTonicLayer()!] : []"
-      [cagedBox]="cagedBox()"
+      [scaleNotes]="keyEditing() ? [] : scaleNotes()"
+      [scaleLabels]="keyEditing() ? [] : scaleLabels()"
+      [scaleRoot]="keyEditing() ? null : (activeKey()?.root ?? null)"
+      [chordLayers]="keyEditing() || !keyTonicLayer() ? [] : [keyTonicLayer()!]"
+      [cagedBox]="keyEditing() ? null : cagedBox()"
       [tuning]="tuning()"
+      [selectable]="keyEditing()"
+      [selectedPositions]="keyMarks()"
+      [markedPositions]="keyMarksForBoard()"
+      [markVariant]="'highlight'"
+      [previewNotes]="keyEditing() ? scaleNotes() : []"
+      [previewRoot]="keyEditing() ? (activeKey()?.root ?? null) : null"
+      [positionAriaLabel]="text().identifyPositionLabel"
+      (positionToggled)="toggleKeyMark($event)"
     />
   } @else {
     @if (chordView() === 'mosaic') {
@@ -358,7 +380,7 @@
     </div>
   }
 
-  @if (mode() !== 'identify') {
+  @if (mode() !== 'identify' && !keyEditing()) {
   <div class="actions">
     <button type="button" (click)="exportPng()" [disabled]="!canExportImage()" [title]="canExportImage() ? '' : text().exportUnavailable">
       {{ text().exportPng }}

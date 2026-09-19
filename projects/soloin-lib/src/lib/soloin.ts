@@ -24,6 +24,11 @@ import {
 import { CAGED_SHAPES, type CagedShape, cagedBoxRange, type FretRange } from './components/soloin-fretboard/caged';
 import { findTuning, TUNINGS, type Tuning, type TuningName } from './components/soloin-fretboard/tunings';
 import { IDENTIFY_MIN_NOTES, identifyScales, type IdentifyGroup, type IdentifyMatch } from './identify';
+import { marksToNumbers, numbersToMarks, type SoloinSessionState } from './session-state';
+
+export type { SoloinSessionState } from './session-state';
+
+const NO_MARKS: ReadonlySet<string> = new Set();
 
 export type Language = 'en' | 'es';
 
@@ -77,6 +82,11 @@ interface CopyText {
   identifyChordsPlaceholder: string;
   identifySuggestedHint: string;
   identifyTouchHint: string;
+  markToggle: string;
+  markClear: string;
+  markHintEditing: (count: number) => string;
+  markCount: (count: number) => string;
+  markedNotesLine: (names: string) => string;
   identifyFretboardLabel: string;
   identifyPositionLabel: (note: string, stringNote: string, fret: number) => string;
   identifyNoteCount: (count: number) => string;
@@ -166,6 +176,11 @@ const COPY: Record<Language, CopyText> = {
     identifyChordsPlaceholder: 'e.g. Cm, Fm, G7 — some or all',
     identifySuggestedHint: 'Rooted on your first chord',
     identifyTouchHint: 'Tap once to preview on the fretboard, tap again to apply.',
+    markToggle: 'Mark notes',
+    markClear: 'Clear marks',
+    markHintEditing: (count) => `Click positions to mark them (${count} marked). Turn off to see them on the fretboard.`,
+    markCount: (count) => `${count} marked`,
+    markedNotesLine: (names) => `Marked notes: ${names}`,
     identifyFretboardLabel: 'Fretboard — mark the notes you hear',
     identifyPositionLabel: (note, stringNote, fret) => `${note}, ${stringNote} string, fret ${fret}`,
     identifyNoteCount: (count) => `${count} notes`,
@@ -237,6 +252,11 @@ const COPY: Record<Language, CopyText> = {
     identifyChordsPlaceholder: 'ej. Cm, Fm, G7 — algunos o todos',
     identifySuggestedHint: 'Con raíz en tu primer acorde',
     identifyTouchHint: 'Toca una vez para previsualizar en el diapasón, otra vez para aplicar.',
+    markToggle: 'Marcar notas',
+    markClear: 'Limpiar marcas',
+    markHintEditing: (count) => `Toca posiciones para marcarlas (${count} marcadas). Apágalo para verlas en el diapasón.`,
+    markCount: (count) => `${count} marcadas`,
+    markedNotesLine: (names) => `Notas marcadas: ${names}`,
     identifyFretboardLabel: 'Diapasón — marca las notas que escuchas',
     identifyPositionLabel: (note, stringNote, fret) => `${note}, cuerda ${stringNote}, traste ${fret}`,
     identifyNoteCount: (count) => `${count} notas`,
@@ -318,6 +338,15 @@ export class SoloinComponent {
   readonly keyOverride = signal<Key | null>(null);
   readonly scaleOverride = signal<ScaleName | null>(null);
   readonly copied = signal(false);
+
+  // Key mode: positions the user marked as relevant to their song, kept until cleared
+  // — across key, scale, tuning and mode changes — and saved with the host's session.
+  // Separate from identifyMarks, which is scratch work for Identify.
+  readonly keyMarks = signal<ReadonlySet<string>>(new Set());
+  readonly keyMarkMode = signal(false);
+  readonly keyEditing = computed(() => this.mode() === 'key' && this.keyMarkMode());
+  // What the read-only Key fretboard draws (empty while editing: the editor shows them itself).
+  readonly keyMarksForBoard = computed(() => (this.mode() === 'key' && !this.keyMarkMode() ? this.keyMarks() : NO_MARKS));
 
   // Identify mode: the exact fret positions the user marked (keys from
   // fretPositionKey). Kept here, not in the fretboard, so it survives leaving the
@@ -566,7 +595,73 @@ export class SoloinComponent {
 
   setMode(mode: InputMode): void {
     this.identifyPreview.set(null);
+    this.keyMarkMode.set(false);
     this.mode.set(mode);
+  }
+
+  toggleKeyMarkMode(): void {
+    this.keyMarkMode.update((on) => !on);
+  }
+
+  toggleKeyMark(position: FretPosition): void {
+    const key = fretPositionKey(position.string, position.fret);
+    this.keyMarks.update((marks) => {
+      const next = new Set(marks);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }
+
+  clearKeyMarks(): void {
+    this.keyMarks.set(new Set());
+  }
+
+  // Distinct marked notes through the current tuning, ordered by pitch class.
+  readonly keyMarkedNotes = computed<Note[]>(() => {
+    const strings = this.tuning().strings;
+    const notes = new Set<Note>();
+    for (const key of this.keyMarks()) {
+      const [s, f] = key.split(':').map(Number);
+      if (strings[s] !== undefined) notes.add(mod12(strings[s] + f));
+    }
+    return [...notes].sort((a, b) => a - b);
+  });
+
+  // Everything a host needs to persist, or null when Soloin is untouched. Only the
+  // fields that differ from the defaults are included.
+  getSessionState(): SoloinSessionState | null {
+    const state: SoloinSessionState = {};
+    const marks = marksToNumbers(this.keyMarks());
+    if (marks.length) state.marks = marks;
+    if (this.tuningName() !== 'standard') state.tuning = this.tuningName();
+    if (this.selectedKeyIndex() > 0) state.key = this.selectedKeyIndex();
+    const scale = this.scaleOverride();
+    if (scale !== null) state.scale = scale;
+    return Object.keys(state).length ? state : null;
+  }
+
+  // Restores a saved state completely (absent fields mean "default") and lands on Key
+  // mode, where the marks live. Untrusted input: anything invalid falls back to default.
+  applySessionState(state: SoloinSessionState): void {
+    this.keyMarks.set(numbersToMarks(state.marks));
+    this.tuningName.set(TUNINGS.some((t) => t.name === state.tuning) ? state.tuning! : 'standard');
+    const key = Number.isInteger(state.key) ? this.allKeys[state.key!] : undefined;
+    this.selectedKey.set(key ?? { root: 0, mode: 'major' });
+    this.scaleOverride.set(SCALE_ORDER.includes(state.scale as ScaleName) ? (state.scale as ScaleName) : null);
+    this.identifyPreview.set(null);
+    this.keyMarkMode.set(false);
+    this.mode.set('key');
+  }
+
+  // Back to the defaults for everything getSessionState covers; mode, progression
+  // and display preferences are left alone.
+  resetSessionState(): void {
+    this.keyMarks.set(new Set());
+    this.tuningName.set('standard');
+    this.selectedKey.set({ root: 0, mode: 'major' });
+    this.scaleOverride.set(null);
+    this.identifyPreview.set(null);
+    this.keyMarkMode.set(false);
   }
 
   isPreviewing(match: IdentifyMatch): boolean {
@@ -734,6 +829,10 @@ export class SoloinComponent {
     for (const layer of this.chordLayers()) {
       const badge = layer.diatonic ? '' : ` (${t.nonDiatonicBadge})`;
       lines.push(`${layer.label}${badge}: ${layer.toneLabels.join(', ')}`);
+    }
+    const marked = this.keyMarkedNotes();
+    if (this.mode() === 'key' && marked.length > 0) {
+      lines.push(t.markedNotesLine(marked.map((n) => noteName(n)).join(', ')));
     }
     return lines.join('\n');
   }
