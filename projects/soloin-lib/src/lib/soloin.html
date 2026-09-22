@@ -184,6 +184,16 @@
           <input type="checkbox" [checked]="showScaleNotes()" (change)="toggleScaleNotes($event)" />
           {{ text().showScaleNotes }}
         </label>
+
+        <label class="scale-toggle" [class.disabled]="keyMarks().size === 0">
+          <input
+            type="checkbox"
+            [checked]="showKeyMarksInProgression()"
+            [disabled]="keyMarks().size === 0"
+            (change)="toggleKeyMarksInProgression($event)"
+          />
+          {{ text().showKeyMarks }}
+        </label>
       }
     </div>
 
@@ -334,6 +344,8 @@
               [chordLayers]="[layer]"
               [cagedBox]="cagedBox()"
               [tuning]="tuning()"
+              [markedPositions]="progressionMarks()"
+              [markVariant]="'highlight'"
               [ariaLabel]="layer.label"
             />
           </div>
@@ -360,6 +372,8 @@
           [chordLayers]="activeChordLayer() ? [activeChordLayer()!] : []"
           [cagedBox]="cagedBox()"
           [tuning]="tuning()"
+          [markedPositions]="progressionMarks()"
+          [markVariant]="'highlight'"
           [ariaLabel]="activeChordLayer()?.label ?? ''"
         />
       </div>

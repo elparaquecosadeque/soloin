@@ -87,4 +87,18 @@ describe('SoloinComponent', () => {
       expect(component.summaryText()).not.toContain('Marked notes');
     });
   });
+
+  describe('showKeyMarksInProgression', () => {
+    it('starts off and only projects keyMarks onto progressionMarks once toggled on', () => {
+      component.keyMarks.set(new Set(['0:0', '1:1']));
+      expect(component.showKeyMarksInProgression()).toBe(false);
+      expect(component.progressionMarks().size).toBe(0);
+
+      component.showKeyMarksInProgression.set(true);
+      expect(component.progressionMarks()).toEqual(component.keyMarks());
+
+      component.showKeyMarksInProgression.set(false);
+      expect(component.progressionMarks().size).toBe(0);
+    });
+  });
 });

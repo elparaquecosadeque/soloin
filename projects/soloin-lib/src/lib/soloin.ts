@@ -108,6 +108,7 @@ interface CopyText {
   mosaicView: string;
   carouselView: string;
   showScaleNotes: string;
+  showKeyMarks: string;
   notesLabelMode: string;
   degreesLabelMode: string;
   highlightLabel: string;
@@ -214,6 +215,7 @@ const COPY: Record<Language, CopyText> = {
     mosaicView: 'Mosaic',
     carouselView: 'Carousel',
     showScaleNotes: 'Show key notes',
+    showKeyMarks: 'Show my marks',
     notesLabelMode: 'Notes',
     degreesLabelMode: 'Degrees',
     highlightLabel: 'Highlight',
@@ -290,6 +292,7 @@ const COPY: Record<Language, CopyText> = {
     mosaicView: 'Mosaico',
     carouselView: 'Carrusel',
     showScaleNotes: 'Mostrar notas de la tonalidad',
+    showKeyMarks: 'Mostrar mis marcas',
     notesLabelMode: 'Notas',
     degreesLabelMode: 'Grados',
     highlightLabel: 'Resaltado',
@@ -374,6 +377,11 @@ export class SoloinComponent {
   // chord tile — showing it by default made it look like part of the chord
   // itself (see HANDOFF.md gotchas), so it's opt-in instead.
   readonly showScaleNotes = signal(false);
+  // Off by default, same reasoning as showScaleNotes: the marks made in Key mode are
+  // song-wide, not specific to any one chord, so overlaying them on every tile by
+  // default would read as if they belonged to that chord. Read-only here — Progression
+  // never edits keyMarks, only Key mode's mark-toggle does.
+  readonly showKeyMarksInProgression = signal(false);
   readonly labelMode = signal<LabelMode>('notes');
   readonly highlightMode = signal<HighlightMode>('all');
   readonly cagedShape = signal<CagedShape>('C');
@@ -795,6 +803,14 @@ export class SoloinComponent {
   toggleScaleNotes(event: Event): void {
     this.showScaleNotes.set((event.target as HTMLInputElement).checked);
   }
+
+  toggleKeyMarksInProgression(event: Event): void {
+    this.showKeyMarksInProgression.set((event.target as HTMLInputElement).checked);
+  }
+
+  // Read-only projection for Progression's per-chord fretboards — never the raw
+  // signal directly, so a disabled/off toggle can't leak marks onto a tile.
+  readonly progressionMarks = computed(() => (this.showKeyMarksInProgression() ? this.keyMarks() : NO_MARKS));
 
   stepCarousel(delta: number): void {
     const max = this.chordLayers().length - 1;
