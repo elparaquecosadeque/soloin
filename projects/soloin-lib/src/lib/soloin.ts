@@ -1,4 +1,4 @@
-import { Component, computed, HostListener, input, signal, viewChildren } from '@angular/core';
+import { Component, computed, effect, HostListener, input, signal, viewChildren } from '@angular/core';
 import {
   buildChordTones,
   buildScale,
@@ -68,6 +68,25 @@ type InputMode = 'progression' | 'key' | 'identify';
 type LabelMode = 'notes' | 'degrees';
 type HighlightMode = 'all' | 'caged';
 
+// Practice mode (Key mode only) rides the host app's own transport instead of
+// running a second, independent clock — the host feeds in one beat event per
+// tick plus whether that transport is playing. This shape is owned by
+// soloin-lib itself (duck-typed, nothing imported from the host), the same
+// decoupling already used for the chord-finder-extra projection slot: a host
+// whose beat events happen to carry this shape needs no adapter at all.
+export interface SoloinBeatEvent {
+  totalBeatIndex: number;
+  isAccent: boolean;
+}
+
+type PracticeSubmode = 'scale' | 'caged';
+type PracticeDirection = 'up' | 'down' | 'updown';
+
+// A silent lead-in before the drill itself starts, long enough to find the
+// first note/box without rushing — not tied to the transport's own time
+// signature, which may not even be 4.
+const PRACTICE_COUNT_IN_BEATS = 4;
+
 interface CopyText {
   title: string;
   subtitle: string;
@@ -108,6 +127,7 @@ interface CopyText {
   mosaicView: string;
   carouselView: string;
   showScaleNotes: string;
+  showChordTones: string;
   showKeyMarks: string;
   notesLabelMode: string;
   degreesLabelMode: string;
@@ -125,6 +145,21 @@ interface CopyText {
   exportUnavailable: string;
   copyText: string;
   copied: string;
+  practiceManual: string;
+  practiceToggle: string;
+  practiceScale: string;
+  practiceCaged: string;
+  practiceNeedsTransport: string;
+  practiceUp: string;
+  practiceDown: string;
+  practiceUpDown: string;
+  practiceBeatsPerNote: string;
+  practiceBeatsPerBox: string;
+  practiceCountIn: string;
+  practiceLoop: string;
+  practiceCountingIn: (beats: number) => string;
+  practiceNoteStatus: (note: string, beat: number, total: number) => string;
+  practiceBoxStatus: (box: string, beat: number, total: number) => string;
 }
 
 const SCALE_ORDER: ScaleName[] = [
@@ -215,6 +250,7 @@ const COPY: Record<Language, CopyText> = {
     mosaicView: 'Mosaic',
     carouselView: 'Carousel',
     showScaleNotes: 'Show key notes',
+    showChordTones: 'Highlight chord tones',
     showKeyMarks: 'Show my marks',
     notesLabelMode: 'Notes',
     degreesLabelMode: 'Degrees',
@@ -238,6 +274,21 @@ const COPY: Record<Language, CopyText> = {
     exportUnavailable: 'Switch to Carousel to export an image',
     copyText: 'Copy as text',
     copied: 'Copied!',
+    practiceManual: 'Manual',
+    practiceToggle: 'Practice',
+    practiceScale: 'Scale',
+    practiceCaged: 'CAGED boxes',
+    practiceNeedsTransport: 'Press play on the metronome to start',
+    practiceUp: 'Ascending',
+    practiceDown: 'Descending',
+    practiceUpDown: 'Up and down',
+    practiceBeatsPerNote: 'Beats/note',
+    practiceBeatsPerBox: 'Beats/box',
+    practiceCountIn: 'Count-in',
+    practiceLoop: 'Loop',
+    practiceCountingIn: (beats) => `Starting in ${beats}…`,
+    practiceNoteStatus: (note, beat, total) => `${note} · beat ${beat}/${total}`,
+    practiceBoxStatus: (box, beat, total) => `Box ${box} · beat ${beat}/${total}`,
   },
   es: {
     title: 'Soloin',
@@ -292,6 +343,7 @@ const COPY: Record<Language, CopyText> = {
     mosaicView: 'Mosaico',
     carouselView: 'Carrusel',
     showScaleNotes: 'Mostrar notas de la tonalidad',
+    showChordTones: 'Resaltar notas del acorde',
     showKeyMarks: 'Mostrar mis marcas',
     notesLabelMode: 'Notas',
     degreesLabelMode: 'Grados',
@@ -315,6 +367,21 @@ const COPY: Record<Language, CopyText> = {
     exportUnavailable: 'Cambia a Carrusel para exportar una imagen',
     copyText: 'Copiar como texto',
     copied: '¡Copiado!',
+    practiceManual: 'Manual',
+    practiceToggle: 'Práctica',
+    practiceScale: 'Escala',
+    practiceCaged: 'Cajas CAGED',
+    practiceNeedsTransport: 'Presiona play en el metrónomo para empezar',
+    practiceUp: 'Ascendente',
+    practiceDown: 'Descendente',
+    practiceUpDown: 'Sube y baja',
+    practiceBeatsPerNote: 'Beats/nota',
+    practiceBeatsPerBox: 'Beats/caja',
+    practiceCountIn: 'Cuenta de entrada',
+    practiceLoop: 'Repetir',
+    practiceCountingIn: (beats) => `Empieza en ${beats}…`,
+    practiceNoteStatus: (note, beat, total) => `${note} · beat ${beat}/${total}`,
+    practiceBoxStatus: (box, beat, total) => `Caja ${box} · beat ${beat}/${total}`,
   },
 };
 
@@ -328,6 +395,11 @@ const COPY: Record<Language, CopyText> = {
 export class SoloinComponent {
   readonly language = input<Language>('en');
   readonly text = computed(() => COPY[this.language()]);
+
+  // Fed in by the host app from its own transport/metronome — see
+  // SoloinBeatEvent above for why this isn't a direct service import.
+  readonly beatEvent = input<SoloinBeatEvent | null>(null);
+  readonly transportPlaying = input(false);
 
   readonly scaleOrder = SCALE_ORDER;
   readonly allKeys = ALL_KEYS;
@@ -377,6 +449,8 @@ export class SoloinComponent {
   // chord tile — showing it by default made it look like part of the chord
   // itself (see HANDOFF.md gotchas), so it's opt-in instead.
   readonly showScaleNotes = signal(false);
+  // Off by default, same reasoning as showScaleNotes — Key mode only.
+  readonly showChordTones = signal(false);
   // Off by default, same reasoning as showScaleNotes: the marks made in Key mode are
   // song-wide, not specific to any one chord, so overlaying them on every tile by
   // default would read as if they belonged to that chord. Read-only here — Progression
@@ -384,8 +458,39 @@ export class SoloinComponent {
   readonly showKeyMarksInProgression = signal(false);
   readonly labelMode = signal<LabelMode>('notes');
   readonly highlightMode = signal<HighlightMode>('all');
-  readonly cagedShape = signal<CagedShape>('C');
+  // Multi-select: more than one box at once (e.g. C + A) lets the player
+  // practice shifting between adjacent positions instead of only ever seeing
+  // one box in isolation.
+  readonly selectedCagedShapes = signal<ReadonlySet<CagedShape>>(new Set<CagedShape>(['C']));
   readonly cagedShapes = CAGED_SHAPES;
+
+  // Practice mode: Key mode only, drills either the scale notes (in a chosen
+  // direction) or the CAGED boxes, one step at a time, timed to the host's
+  // transport rather than a second BPM control.
+  readonly practiceOn = signal(false);
+  readonly practiceSubmode = signal<PracticeSubmode>('scale');
+  readonly practiceDirection = signal<PracticeDirection>('up');
+  readonly practiceNoteBeats = signal(2);
+  readonly practiceBoxBeats = signal(4);
+  readonly practiceCountIn = signal(true);
+  readonly practiceLoop = signal(true);
+  // totalBeatIndex captured the moment practice+transport are both active —
+  // null means "not currently running," which also covers the case where the
+  // host's transport was already mid-measure when practice was switched on.
+  private readonly practiceStartBeat = signal<number | null>(null);
+
+  constructor() {
+    effect(() => {
+      const running = this.practiceOn() && this.transportPlaying();
+      if (running) {
+        if (this.practiceStartBeat() === null) {
+          this.practiceStartBeat.set(this.beatEvent()?.totalBeatIndex ?? 0);
+        }
+      } else if (this.practiceStartBeat() !== null) {
+        this.practiceStartBeat.set(null);
+      }
+    });
+  }
 
   readonly tuningName = signal<TuningName>('standard');
   readonly tunings = TUNINGS;
@@ -510,10 +615,15 @@ export class SoloinComponent {
   // CAGED boxes are picked per key/progression, not per chord — you stay in
   // one hand position for the whole progression rather than hopping shapes
   // chord to chord, so this applies uniformly to every rendered fretboard.
-  readonly cagedBox = computed<FretRange | null>(() => {
-    if (this.highlightMode() !== 'caged' || !this.isStandardTuning()) return null;
+  readonly cagedBoxes = computed<FretRange[]>(() => {
+    if (this.highlightMode() !== 'caged' || !this.isStandardTuning()) return [];
     const key = this.activeKey();
-    return key ? cagedBoxRange(this.cagedShape(), key.root) : null;
+    if (!key) return [];
+    // While Practice is actively stepping through CAGED boxes, it drives a
+    // single live box instead of the manually multi-selected set.
+    const liveShape = this.practiceCagedShape();
+    if (liveShape) return [cagedBoxRange(liveShape, key.root)];
+    return [...this.selectedCagedShapes()].map((shape) => cagedBoxRange(shape, key.root));
   });
 
   readonly scaleNotes = computed<Note[]>(() => {
@@ -567,9 +677,86 @@ export class SoloinComponent {
       root: key.root,
       tones,
       toneLabels: this.toneLabelsFor(tones, quality),
-      colorVar: '--_chords-chord-color-1',
+      // chord-color-1 aliases --chords-primary, the same hue already used for
+      // plain scale notes — indistinguishable at a glance. chord-color-2 is
+      // the app's secondary accent, which actually reads as "a different set
+      // of notes" against the rest of the scale.
+      colorVar: '--_chords-chord-color-2',
       diatonic: true, // the key's own tonic triad is diatonic to itself by construction
     };
+  });
+
+  // Chord-tone highlighting and a live Practice note both render through the
+  // same single-layer mechanism the fretboard already understands — Practice
+  // takes priority over the plain "highlight chord tones" checkbox while it's
+  // actively stepping, since showing both would just be visual noise.
+  readonly keyFretboardLayers = computed<ChordLayer[]>(() => {
+    const practiceLayer = this.practiceNoteLayer();
+    if (practiceLayer) return [practiceLayer];
+    if (this.showChordTones() && this.keyTonicLayer()) return [this.keyTonicLayer()!];
+    return [];
+  });
+
+  // Scale degrees in practice order — reused for both "up" and its reverse,
+  // so direction never needs its own note-position math.
+  readonly practiceScaleSequence = computed<Note[]>(() => {
+    const notes = this.scaleNotes();
+    if (notes.length === 0) return [];
+    const direction = this.practiceDirection();
+    if (direction === 'down') return [...notes].reverse();
+    if (direction === 'updown') return [...notes, ...[...notes].reverse().slice(1)];
+    return notes;
+  });
+
+  // Beats elapsed since Practice itself started (not the transport, which may
+  // have already been running) minus the count-in. Negative = still counting
+  // in; null = not currently running at all.
+  readonly practiceElapsedBeats = computed<number | null>(() => {
+    if (!this.practiceOn()) return null;
+    const start = this.practiceStartBeat();
+    const event = this.beatEvent();
+    if (start === null || event === null) return null;
+    const countIn = this.practiceCountIn() ? PRACTICE_COUNT_IN_BEATS : 0;
+    return event.totalBeatIndex - start - countIn;
+  });
+
+  readonly practiceCountingInBeats = computed<number | null>(() => {
+    const elapsed = this.practiceElapsedBeats();
+    return elapsed !== null && elapsed < 0 ? -elapsed : null;
+  });
+
+  // The current step index/beat-within-step, derived purely from elapsed
+  // beats — never a separately maintained counter, so it can't drift out of
+  // sync with what's actually rendered.
+  readonly practiceStep = computed<{ index: number; beatInStep: number; beatsPerStep: number } | null>(() => {
+    const elapsed = this.practiceElapsedBeats();
+    if (elapsed === null || elapsed < 0) return null;
+    const submode = this.practiceSubmode();
+    const beatsPerStep = submode === 'scale' ? this.practiceNoteBeats() : this.practiceBoxBeats();
+    const seqLen = submode === 'scale' ? this.practiceScaleSequence().length : this.cagedShapes.length;
+    if (seqLen === 0) return null;
+    const rawIndex = Math.floor(elapsed / beatsPerStep);
+    const index = this.practiceLoop() ? rawIndex % seqLen : Math.min(rawIndex, seqLen - 1);
+    return { index, beatInStep: elapsed % beatsPerStep, beatsPerStep };
+  });
+
+  readonly practiceNoteLayer = computed<ChordLayer | null>(() => {
+    if (!this.practiceOn() || this.practiceSubmode() !== 'scale') return null;
+    const step = this.practiceStep();
+    if (!step) return null;
+    const note = this.practiceScaleSequence()[step.index];
+    if (note === undefined) return null;
+    const notes = this.scaleNotes();
+    const labels = this.scaleLabels();
+    const idx = notes.indexOf(note);
+    const label = idx === -1 ? noteName(note) : (labels[idx] ?? noteName(note));
+    return { label, root: note, tones: [note], toneLabels: [label], colorVar: '--_chords-chord-color-2', diatonic: true };
+  });
+
+  readonly practiceCagedShape = computed<CagedShape | null>(() => {
+    if (!this.practiceOn() || this.practiceSubmode() !== 'caged') return null;
+    const step = this.practiceStep();
+    return step ? (this.cagedShapes[step.index] ?? null) : null;
   });
 
   readonly detectedKeyLabel = computed(() => {
@@ -796,12 +983,66 @@ export class SoloinComponent {
     this.tuningName.set((event.target as HTMLSelectElement).value as TuningName);
   }
 
-  setCagedShape(shape: CagedShape): void {
-    this.cagedShape.set(shape);
+  toggleCagedShape(shape: CagedShape): void {
+    this.selectedCagedShapes.update((current) => {
+      const next = new Set(current);
+      if (next.delete(shape)) {
+        if (next.size === 0) return current; // keep at least one box selected
+      } else {
+        next.add(shape);
+      }
+      return next;
+    });
   }
 
   toggleScaleNotes(event: Event): void {
     this.showScaleNotes.set((event.target as HTMLInputElement).checked);
+  }
+
+  toggleChordTones(event: Event): void {
+    this.showChordTones.set((event.target as HTMLInputElement).checked);
+  }
+
+  private resetPracticeClock(): void {
+    this.practiceStartBeat.set(null);
+  }
+
+  setPracticeOn(on: boolean): void {
+    this.practiceOn.set(on);
+    this.resetPracticeClock();
+  }
+
+  setPracticeSubmode(submode: PracticeSubmode): void {
+    this.practiceSubmode.set(submode);
+    // Box-stepping only has something to show once CAGED highlighting (and
+    // its per-box fret filtering) is actually on.
+    if (submode === 'caged' && this.highlightMode() !== 'caged') this.highlightMode.set('caged');
+    this.resetPracticeClock();
+  }
+
+  setPracticeDirection(direction: PracticeDirection): void {
+    this.practiceDirection.set(direction);
+    this.resetPracticeClock();
+  }
+
+  adjustPracticeNoteBeats(delta: number): void {
+    this.practiceNoteBeats.update((n) => Math.min(4, Math.max(1, n + delta)));
+    this.resetPracticeClock();
+  }
+
+  adjustPracticeBoxBeats(delta: number): void {
+    this.practiceBoxBeats.update((n) => Math.min(8, Math.max(2, n + delta)));
+    this.resetPracticeClock();
+  }
+
+  togglePracticeCountIn(event: Event): void {
+    this.practiceCountIn.set((event.target as HTMLInputElement).checked);
+    this.resetPracticeClock();
+  }
+
+  togglePracticeLoop(event: Event): void {
+    this.practiceLoop.set((event.target as HTMLInputElement).checked);
+    this.resetPracticeClock();
   }
 
   toggleKeyMarksInProgression(event: Event): void {

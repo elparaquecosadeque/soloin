@@ -209,6 +209,11 @@
           {{ text().markClear }}
         </button>
       </div>
+
+      <label class="scale-toggle">
+        <input type="checkbox" [checked]="showChordTones()" (change)="toggleChordTones($event)" />
+        {{ text().showChordTones }}
+      </label>
     }
 
     @if (highlightMode() === 'caged' && isStandardTuning()) {
@@ -219,15 +224,90 @@
             <button
               type="button"
               role="tab"
-              [attr.aria-selected]="cagedShape() === shape"
-              [class.active]="cagedShape() === shape"
-              (click)="setCagedShape(shape)"
+              [disabled]="practiceOn() && practiceSubmode() === 'caged'"
+              [attr.aria-selected]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
+              [class.active]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
+              (click)="toggleCagedShape(shape)"
             >
               {{ shape }}
             </button>
           }
         </div>
       </div>
+    }
+
+    @if (mode() === 'key') {
+      <div class="view-toggle" role="tablist">
+        <button type="button" role="tab" [attr.aria-selected]="!practiceOn()" [class.active]="!practiceOn()" (click)="setPracticeOn(false)">
+          {{ text().practiceManual }}
+        </button>
+        <button type="button" role="tab" [attr.aria-selected]="practiceOn()" [class.active]="practiceOn()" (click)="setPracticeOn(true)">
+          {{ text().practiceToggle }}
+        </button>
+      </div>
+
+      @if (practiceOn()) {
+        <div class="practice-panel">
+          <div class="view-toggle" role="tablist">
+            <button type="button" role="tab" [attr.aria-selected]="practiceSubmode() === 'scale'" [class.active]="practiceSubmode() === 'scale'" (click)="setPracticeSubmode('scale')">
+              {{ text().practiceScale }}
+            </button>
+            <button type="button" role="tab" [attr.aria-selected]="practiceSubmode() === 'caged'" [class.active]="practiceSubmode() === 'caged'" (click)="setPracticeSubmode('caged')">
+              {{ text().practiceCaged }}
+            </button>
+          </div>
+
+          @if (practiceSubmode() === 'scale') {
+            <div class="view-toggle" role="tablist">
+              <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'up'" [class.active]="practiceDirection() === 'up'" (click)="setPracticeDirection('up')">
+                {{ text().practiceUp }}
+              </button>
+              <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'down'" [class.active]="practiceDirection() === 'down'" (click)="setPracticeDirection('down')">
+                {{ text().practiceDown }}
+              </button>
+              <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'updown'" [class.active]="practiceDirection() === 'updown'" (click)="setPracticeDirection('updown')">
+                {{ text().practiceUpDown }}
+              </button>
+            </div>
+            <div class="practice-stepper">
+              <span>{{ text().practiceBeatsPerNote }}</span>
+              <button type="button" (click)="adjustPracticeNoteBeats(-1)" aria-label="-">&minus;</button>
+              <output>{{ practiceNoteBeats() }}</output>
+              <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
+            </div>
+          } @else {
+            <div class="practice-stepper">
+              <span>{{ text().practiceBeatsPerBox }}</span>
+              <button type="button" (click)="adjustPracticeBoxBeats(-1)" aria-label="-">&minus;</button>
+              <output>{{ practiceBoxBeats() }}</output>
+              <button type="button" (click)="adjustPracticeBoxBeats(1)" aria-label="+">+</button>
+            </div>
+          }
+
+          <label class="scale-toggle">
+            <input type="checkbox" [checked]="practiceCountIn()" (change)="togglePracticeCountIn($event)" />
+            {{ text().practiceCountIn }}
+          </label>
+          <label class="scale-toggle">
+            <input type="checkbox" [checked]="practiceLoop()" (change)="togglePracticeLoop($event)" />
+            {{ text().practiceLoop }}
+          </label>
+
+          @if (!transportPlaying()) {
+            <p class="practice-status">{{ text().practiceNeedsTransport }}</p>
+          } @else if (practiceCountingInBeats(); as beats) {
+            <p class="practice-status">{{ text().practiceCountingIn(beats) }}</p>
+          } @else if (practiceStep(); as step) {
+            <p class="practice-status">
+              {{
+                practiceSubmode() === 'scale'
+                  ? text().practiceNoteStatus(practiceNoteLayer()?.label ?? '', step.beatInStep + 1, step.beatsPerStep)
+                  : text().practiceBoxStatus(practiceCagedShape() ?? '', step.beatInStep + 1, step.beatsPerStep)
+              }}
+            </p>
+          }
+        </div>
+      }
     }
     }
   </div>
@@ -314,8 +394,8 @@
       [scaleNotes]="keyEditing() ? [] : scaleNotes()"
       [scaleLabels]="keyEditing() ? [] : scaleLabels()"
       [scaleRoot]="keyEditing() ? null : (activeKey()?.root ?? null)"
-      [chordLayers]="keyEditing() || !keyTonicLayer() ? [] : [keyTonicLayer()!]"
-      [cagedBox]="keyEditing() ? null : cagedBox()"
+      [chordLayers]="keyEditing() ? [] : keyFretboardLayers()"
+      [cagedBoxes]="keyEditing() ? [] : cagedBoxes()"
       [tuning]="tuning()"
       [selectable]="keyEditing()"
       [selectedPositions]="keyMarks()"
@@ -342,7 +422,7 @@
               [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
               [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
               [chordLayers]="[layer]"
-              [cagedBox]="cagedBox()"
+              [cagedBoxes]="cagedBoxes()"
               [tuning]="tuning()"
               [markedPositions]="progressionMarks()"
               [markVariant]="'highlight'"
@@ -370,7 +450,7 @@
           [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
           [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
           [chordLayers]="activeChordLayer() ? [activeChordLayer()!] : []"
-          [cagedBox]="cagedBox()"
+          [cagedBoxes]="cagedBoxes()"
           [tuning]="tuning()"
           [markedPositions]="progressionMarks()"
           [markVariant]="'highlight'"

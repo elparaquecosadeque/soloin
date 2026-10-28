@@ -83,7 +83,10 @@ export class SoloinFretboard {
   readonly scaleLabels = input<string[]>([]); // parallel to scaleNotes
   readonly scaleRoot = input<Note | null>(null);
   readonly chordLayers = input<ChordLayer[]>([]);
-  readonly cagedBox = input<FretRange | null>(null);
+  // Empty = no CAGED filtering (show everything); one or more ranges = only
+  // positions inside at least one of them stay visible — lets the caller
+  // overlay several boxes at once (e.g. practicing a shift from C to A).
+  readonly cagedBoxes = input<FretRange[]>([]);
   readonly tuning = input<Tuning>(TUNINGS[0]);
   readonly ariaLabel = input('Fretboard');
 
@@ -185,13 +188,13 @@ export class SoloinFretboard {
     scaleNotesArr.forEach((n, i) => scaleLabelByPc.set(n, scaleLabelsArr[i] ?? ''));
 
     const layers = this.chordLayers();
-    const box = this.cagedBox();
+    const boxes = this.cagedBoxes();
     const openPitches = this.tuning().strings;
     const out: RenderDot[] = [];
 
     openPitches.forEach((openPc, si) => {
       for (let f = 0; f <= FRETS; f++) {
-        if (box && (f < box.start || f > box.end)) continue;
+        if (boxes.length > 0 && !boxes.some((box) => f >= box.start && f <= box.end)) continue;
         const pc = mod12(openPc + f);
         const x = dotX(f);
         const y = dotY(si);
