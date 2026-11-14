@@ -23,7 +23,9 @@ import {
 } from './components/soloin-fretboard/soloin-fretboard';
 import { CAGED_SHAPES, type CagedShape, cagedBoxRange, type FretRange } from './components/soloin-fretboard/caged';
 import { findTuning, TUNINGS, type Tuning, type TuningName } from './components/soloin-fretboard/tunings';
+import { RiffTab } from './components/riff-tab/riff-tab';
 import { IDENTIFY_MIN_NOTES, identifyScales, type IdentifyGroup, type IdentifyMatch } from './identify';
+import { riffsFor, type Riff } from './riffs';
 import { marksToNumbers, numbersToMarks, type SoloinSessionState } from './session-state';
 
 export type { SoloinSessionState } from './session-state';
@@ -79,7 +81,7 @@ export interface SoloinBeatEvent {
   isAccent: boolean;
 }
 
-type PracticeSubmode = 'scale' | 'caged';
+type PracticeSubmode = 'scale' | 'caged' | 'riff';
 type PracticeDirection = 'up' | 'down' | 'updown';
 
 // A silent lead-in before the drill itself starts, long enough to find the
@@ -149,6 +151,10 @@ interface CopyText {
   practiceToggle: string;
   practiceScale: string;
   practiceCaged: string;
+  practiceRiff: string;
+  riffOf: (index: number, total: number) => string;
+  riffUnavailable: string;
+  riffStatus: (name: string, beat: number, total: number) => string;
   practiceNeedsTransport: string;
   practiceUp: string;
   practiceDown: string;
@@ -278,6 +284,10 @@ const COPY: Record<Language, CopyText> = {
     practiceToggle: 'Practice',
     practiceScale: 'Scale',
     practiceCaged: 'CAGED boxes',
+    practiceRiff: 'Riff',
+    riffOf: (index, total) => `Riff ${index} of ${total}`,
+    riffUnavailable: 'Riffs are only written for pentatonic and blues scales right now.',
+    riffStatus: (name, beat, total) => `${name} · beat ${beat}/${total}`,
     practiceNeedsTransport: 'Press play on the metronome to start',
     practiceUp: 'Ascending',
     practiceDown: 'Descending',
@@ -371,6 +381,10 @@ const COPY: Record<Language, CopyText> = {
     practiceToggle: 'Práctica',
     practiceScale: 'Escala',
     practiceCaged: 'Cajas CAGED',
+    practiceRiff: 'Riff',
+    riffOf: (index, total) => `Riff ${index} de ${total}`,
+    riffUnavailable: 'Por ahora los riffs solo existen para escalas pentatónicas y blues.',
+    riffStatus: (name, beat, total) => `${name} · beat ${beat}/${total}`,
     practiceNeedsTransport: 'Presiona play en el metrónomo para empezar',
     practiceUp: 'Ascendente',
     practiceDown: 'Descendente',
@@ -387,7 +401,7 @@ const COPY: Record<Language, CopyText> = {
 
 @Component({
   selector: 'the-chords-soloin',
-  imports: [SoloinFretboard],
+  imports: [SoloinFretboard, RiffTab],
   templateUrl: './soloin.html',
   styleUrl: './soloin.scss',
   host: { '[attr.lang]': 'language()' },
@@ -421,7 +435,13 @@ export class SoloinComponent {
   readonly keyMarkMode = signal(false);
   readonly keyEditing = computed(() => this.mode() === 'key' && this.keyMarkMode());
   // What the read-only Key fretboard draws (empty while editing: the editor shows them itself).
-  readonly keyMarksForBoard = computed(() => (this.mode() === 'key' && !this.keyMarkMode() ? this.keyMarks() : NO_MARKS));
+  // A live riff note takes priority — it's a different mark on every beat,
+  // the user's own manual marks are static until they add more.
+  readonly keyMarksForBoard = computed(() => {
+    const riffMark = this.practiceRiffMark();
+    if (riffMark.size > 0) return riffMark;
+    return this.mode() === 'key' && !this.keyMarkMode() ? this.keyMarks() : NO_MARKS;
+  });
 
   // Identify mode: the exact fret positions the user marked (keys from
   // fretPositionKey). Kept here, not in the fretboard, so it survives leaving the
@@ -474,6 +494,10 @@ export class SoloinComponent {
   readonly practiceBoxBeats = signal(4);
   readonly practiceCountIn = signal(true);
   readonly practiceLoop = signal(true);
+  // Which of riffsFor(scale, shape)'s riffs is active — clamped on read, not
+  // on write, so switching to a scale/shape with fewer riffs never needs a
+  // separate reset call.
+  readonly riffIndex = signal(0);
   // totalBeatIndex captured the moment practice+transport are both active —
   // null means "not currently running," which also covers the case where the
   // host's transport was already mid-measure when practice was switched on.
@@ -754,9 +778,79 @@ export class SoloinComponent {
   });
 
   readonly practiceCagedShape = computed<CagedShape | null>(() => {
-    if (!this.practiceOn() || this.practiceSubmode() !== 'caged') return null;
-    const step = this.practiceStep();
-    return step ? (this.cagedShapes[step.index] ?? null) : null;
+    if (!this.practiceOn()) return null;
+    if (this.practiceSubmode() === 'caged') {
+      const step = this.practiceStep();
+      return step ? (this.cagedShapes[step.index] ?? null) : null;
+    }
+    if (this.practiceSubmode() === 'riff') return this.practiceRiffShape();
+    return null;
+  });
+
+  // Riffs are single-box by design (no "connect two shapes" riffs yet), so
+  // unlike CAGED-box practice there's nothing to step through — just the
+  // first shape the manual multi-select has picked.
+  readonly practiceRiffShape = computed<CagedShape | null>(() => {
+    const [first] = this.selectedCagedShapes();
+    return first ?? null;
+  });
+
+  readonly availableRiffs = computed<Riff[]>(() => {
+    const shape = this.practiceRiffShape();
+    if (!shape) return [];
+    return riffsFor(this.effectiveScale(), shape);
+  });
+
+  readonly activeRiff = computed<Riff | null>(() => {
+    const riffs = this.availableRiffs();
+    if (riffs.length === 0) return null;
+    return riffs[this.riffIndex() % riffs.length];
+  });
+
+  // Elapsed beats wrapped (loop on) or clamped (loop off) to the riff's own
+  // length — a separate clock from practiceStep's uniform-step model, since
+  // a riff's notes have their own individual beat/duration instead of one
+  // fixed duration per step.
+  readonly practiceRiffElapsed = computed<number | null>(() => {
+    if (!this.practiceOn() || this.practiceSubmode() !== 'riff') return null;
+    const elapsed = this.practiceElapsedBeats();
+    const riff = this.activeRiff();
+    if (elapsed === null || elapsed < 0 || !riff || riff.totalBeats === 0) return null;
+    return this.practiceLoop() ? elapsed % riff.totalBeats : Math.min(elapsed, riff.totalBeats - 0.001);
+  });
+
+  readonly practiceRiffNoteIndex = computed<number | null>(() => {
+    const riff = this.activeRiff();
+    const pos = this.practiceRiffElapsed();
+    if (!riff || pos === null) return null;
+    const index = riff.notes.findIndex((n) => pos >= n.beat && pos < n.beat + n.duration);
+    return index === -1 ? null : index;
+  });
+
+  readonly practiceRiffMark = computed<ReadonlySet<string>>(() => {
+    const riff = this.activeRiff();
+    const index = this.practiceRiffNoteIndex();
+    const shape = this.practiceRiffShape();
+    const key = this.activeKey();
+    if (!riff || index === null || !shape || !key) return NO_MARKS;
+    const note = riff.notes[index];
+    const fret = cagedBoxRange(shape, key.root).start + note.fretOffset;
+    return new Set([fretPositionKey(note.stringIndex, fret)]);
+  });
+
+  // Exposed separately from practiceRiffMark for the TAB strip, which needs
+  // the box's start fret regardless of whether a note is currently sounding.
+  readonly practiceRiffBoxStart = computed<number>(() => {
+    const shape = this.practiceRiffShape();
+    const key = this.activeKey();
+    return shape && key ? cagedBoxRange(shape, key.root).start : 0;
+  });
+
+  readonly practiceRiffProgress = computed<number | null>(() => {
+    const riff = this.activeRiff();
+    const pos = this.practiceRiffElapsed();
+    if (!riff || pos === null || riff.totalBeats === 0) return null;
+    return pos / riff.totalBeats;
   });
 
   readonly detectedKeyLabel = computed(() => {
@@ -1014,9 +1108,18 @@ export class SoloinComponent {
 
   setPracticeSubmode(submode: PracticeSubmode): void {
     this.practiceSubmode.set(submode);
-    // Box-stepping only has something to show once CAGED highlighting (and
-    // its per-box fret filtering) is actually on.
-    if (submode === 'caged' && this.highlightMode() !== 'caged') this.highlightMode.set('caged');
+    // Box-stepping and riffs only have something to show once CAGED
+    // highlighting (and its per-box fret filtering) is actually on.
+    if ((submode === 'caged' || submode === 'riff') && this.highlightMode() !== 'caged') {
+      this.highlightMode.set('caged');
+    }
+    this.resetPracticeClock();
+  }
+
+  stepRiff(delta: number): void {
+    const total = this.availableRiffs().length;
+    if (total === 0) return;
+    this.riffIndex.update((i) => ((i + delta) % total + total) % total);
     this.resetPracticeClock();
   }
 

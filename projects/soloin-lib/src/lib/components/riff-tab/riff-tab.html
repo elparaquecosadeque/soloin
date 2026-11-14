@@ -1,0 +1,24 @@
+<svg
+  class="riff-tab"
+  [attr.viewBox]="'0 0 ' + width() + ' ' + height"
+  [attr.width]="width()"
+  [attr.height]="height"
+  role="img"
+  [attr.aria-label]="riff().name.en"
+>
+  @for (y of stringYs; track y) {
+    <line class="string-line" [attr.x1]="0" [attr.y1]="y" [attr.x2]="width()" [attr.y2]="y" />
+  }
+  @for (mark of marks(); track $index) {
+    <g [class.active]="mark.active">
+      <circle class="fret-bg" [attr.cx]="mark.x" [attr.cy]="mark.y" r="8" />
+      <text class="fret-number" [attr.x]="mark.x" [attr.y]="mark.y">{{ mark.fret }}</text>
+    </g>
+  }
+</svg>
+
+@if (progress() !== null) {
+  <div class="riff-progress" role="progressbar" [attr.aria-valuenow]="progressPercent()">
+    <div class="riff-progress-fill" [style.transform]="'scaleX(' + (progress() ?? 0) + ')'"></div>
+  </div>
+}

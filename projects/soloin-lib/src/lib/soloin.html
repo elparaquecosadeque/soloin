@@ -260,6 +260,9 @@
             <button type="button" role="tab" [attr.aria-selected]="practiceSubmode() === 'caged'" [class.active]="practiceSubmode() === 'caged'" (click)="setPracticeSubmode('caged')">
               {{ text().practiceCaged }}
             </button>
+            <button type="button" role="tab" [attr.aria-selected]="practiceSubmode() === 'riff'" [class.active]="practiceSubmode() === 'riff'" (click)="setPracticeSubmode('riff')">
+              {{ text().practiceRiff }}
+            </button>
           </div>
 
           @if (practiceSubmode() === 'scale') {
@@ -282,13 +285,21 @@
                 <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
               </div>
             </div>
-          } @else {
+          } @else if (practiceSubmode() === 'caged') {
             <div class="practice-stepper">
               <span>{{ text().practiceBeatsPerBox }}</span>
               <button type="button" (click)="adjustPracticeBoxBeats(-1)" aria-label="-">&minus;</button>
               <output>{{ practiceBoxBeats() }}</output>
               <button type="button" (click)="adjustPracticeBoxBeats(1)" aria-label="+">+</button>
             </div>
+          } @else if (activeRiff(); as riff) {
+            <div class="practice-stepper">
+              <button type="button" (click)="stepRiff(-1)" [attr.aria-label]="text().previous">‹</button>
+              <output>{{ riff.name[language()] }} — {{ text().riffOf(riffIndex() + 1, availableRiffs().length) }}</output>
+              <button type="button" (click)="stepRiff(1)" [attr.aria-label]="text().next">›</button>
+            </div>
+          } @else {
+            <p class="practice-status">{{ text().riffUnavailable }}</p>
           }
 
           <div class="mark-row">
@@ -302,10 +313,27 @@
             </label>
           </div>
 
+          @if (practiceSubmode() === 'riff' && activeRiff(); as riff) {
+            <soloin-riff-tab
+              [riff]="riff"
+              [boxStart]="practiceRiffBoxStart()"
+              [activeNoteIndex]="practiceRiffNoteIndex()"
+              [progress]="practiceRiffProgress()"
+            />
+          }
+
           @if (!transportPlaying()) {
             <p class="practice-status">{{ text().practiceNeedsTransport }}</p>
           } @else if (practiceCountingInBeats(); as beats) {
             <p class="practice-status">{{ text().practiceCountingIn(beats) }}</p>
+          } @else if (practiceSubmode() === 'riff') {
+            @if (activeRiff(); as riff) {
+              @if (practiceRiffElapsed(); as elapsed) {
+                <p class="practice-status">
+                  {{ text().riffStatus(riff.name[language()], (practiceRiffNoteIndex() ?? 0) + 1, riff.notes.length) }}
+                </p>
+              }
+            }
           } @else if (practiceStep(); as step) {
             <p class="practice-status">
               {{

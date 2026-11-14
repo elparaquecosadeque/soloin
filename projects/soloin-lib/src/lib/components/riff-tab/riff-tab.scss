@@ -1,0 +1,64 @@
+:host {
+  --_chords-surface: var(--chords-surface, #ffffff);
+  --_chords-text: var(--chords-text, #1e293b);
+  --_chords-muted: var(--chords-muted, #64748b);
+  --_chords-border: var(--chords-border, #e2e8f0);
+  --_chords-chord-color-2: var(--chords-chord-color-2, var(--chords-secondary, #06b6d4));
+  --_chords-on-primary: var(--chords-on-primary, #ffffff);
+
+  display: block;
+}
+
+.riff-tab {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.string-line {
+  stroke: var(--_chords-border);
+  stroke-width: 1;
+}
+
+.fret-bg {
+  fill: var(--_chords-surface);
+  stroke: var(--_chords-border);
+  stroke-width: 1;
+}
+
+.fret-number {
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--_chords-text);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+g.active {
+  .fret-bg {
+    fill: var(--_chords-chord-color-2);
+    stroke: var(--_chords-chord-color-2);
+  }
+  .fret-number {
+    fill: var(--_chords-on-primary);
+  }
+}
+
+.riff-progress {
+  margin-top: 6px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--_chords-border);
+  overflow: hidden;
+}
+
+.riff-progress-fill {
+  width: 100%;
+  height: 100%;
+  background: var(--_chords-chord-color-2);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.1s linear;
+}
