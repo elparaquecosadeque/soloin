@@ -3,7 +3,14 @@
     <h3>{{ title() }}</h3>
     <div class="riff-controls">
       <button type="button" class="play" (click)="toggle()" [attr.aria-label]="playing() ? 'Pause' : 'Play'">
-        {{ playing() ? '❚❚' : '▶' }}
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor">
+          @if (playing()) {
+            <rect x="5" y="4" width="5" height="16" rx="1" />
+            <rect x="14" y="4" width="5" height="16" rx="1" />
+          } @else {
+            <path d="M7 4l13 8-13 8z" />
+          }
+        </svg>
       </button>
       <button type="button" (click)="adjustBpm(-10)" aria-label="Slower">−</button>
       <output>{{ bpm() }} bpm</output>

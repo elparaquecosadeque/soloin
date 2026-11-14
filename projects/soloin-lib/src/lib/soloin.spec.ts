@@ -101,4 +101,20 @@ describe('SoloinComponent', () => {
       expect(component.progressionMarks().size).toBe(0);
     });
   });
+
+  describe('practice count-in', () => {
+    it('re-anchors when the transport restarts below a stale beat index', async () => {
+      // Stale event left over from the transport's previous run.
+      fixture.componentRef.setInput('beatEvent', { totalBeatIndex: 28, isAccent: false });
+      fixture.componentRef.setInput('transportPlaying', true);
+      component.setView('practice');
+      await fixture.whenStable();
+
+      fixture.componentRef.setInput('beatEvent', { totalBeatIndex: 0, isAccent: true });
+      await fixture.whenStable();
+
+      expect(component.view()).toBe('practice');
+      expect(component.practiceCountingInBeats()).toBe(4);
+    });
+  });
 });

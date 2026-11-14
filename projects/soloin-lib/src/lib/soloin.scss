@@ -28,10 +28,24 @@
   margin: 0 auto;
 }
 
+// Title left, mode tabs top-right; the tabs drop under the title when they no longer fit.
 .header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.header-text {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 280px;
+}
+
+.mode-toggle {
+  flex-wrap: wrap;
 }
 
 .title {
@@ -187,31 +201,6 @@
   color: var(--_chords-danger);
 }
 
-.scale-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  min-height: 40px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--_chords-muted);
-  cursor: pointer;
-
-  input {
-    cursor: pointer;
-  }
-
-  &.disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-
-    input {
-      cursor: not-allowed;
-    }
-  }
-}
-
 .identify {
   display: flex;
   flex-direction: column;
@@ -232,44 +221,85 @@
   color: var(--_chords-muted);
 }
 
-.mark-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
+// Mark toggle + clear read as one joined control.
+.mark-group {
+  display: inline-flex;
+
+  button {
+    min-height: 40px;
+    border: 1px solid var(--_chords-border);
+    background: var(--_chords-surface);
+    color: var(--_chords-text);
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      border-color: var(--_chords-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--_chords-primary);
+      outline-offset: 2px;
+    }
+  }
 }
 
 .mark-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 14px;
-  border: 1px solid var(--_chords-border);
-  border-radius: 8px;
-  background: var(--_chords-surface);
-  color: var(--_chords-text);
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--_chords-primary);
-  }
+  border-radius: 10px 0 0 10px;
 
   &[aria-pressed='true'] {
     background: var(--_chords-primary);
     border-color: var(--_chords-primary);
     color: var(--_chords-on-primary);
+
+    .mark-badge {
+      background: var(--_chords-on-primary);
+      color: var(--_chords-primary);
+    }
+  }
+}
+
+.mark-badge {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--_chords-primary);
+  color: var(--_chords-on-primary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.mark-clear {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  margin-left: -1px;
+  border-radius: 0 10px 10px 0;
+
+  &:disabled {
+    color: var(--_chords-muted);
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
 .mark-hint {
-  flex: 1;
-  min-width: 12ch;
   margin: 0;
   font-size: 0.85rem;
   color: var(--_chords-muted);
+
+  &:empty {
+    display: none;
+  }
 }
 
-.identify-clear,
-.mark-clear {
+.identify-clear {
   padding: 6px 14px;
   border: 1px solid var(--_chords-border);
   border-radius: 8px;
@@ -292,6 +322,107 @@
 .view-toggle button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+// The shared dropdowns + controls block; native <details> so it collapses out of the way.
+.section-panel {
+  summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--_chords-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    // Chevron drawn from borders: points right when closed, down when open.
+    &::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.15s ease-out;
+    }
+
+    &:hover {
+      color: var(--_chords-text);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--_chords-primary);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+  }
+
+  &[open] summary {
+    margin-bottom: 8px;
+
+    &::before {
+      transform: rotate(45deg);
+    }
+  }
+}
+
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.view-toggle button:has(.icon) {
+  display: inline-grid;
+  place-items: center;
+  padding: 6px 12px;
+}
+
+// Square on/off button for options whose icon is unambiguous (e.g. loop).
+.icon-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 10px;
+  background: var(--_chords-surface);
+  color: var(--_chords-muted);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--_chords-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--_chords-primary);
+    outline-offset: 2px;
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--_chords-primary);
+    border-color: var(--_chords-primary);
+    color: var(--_chords-on-primary);
+  }
 }
 
 .practice-panel {

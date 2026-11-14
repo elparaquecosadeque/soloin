@@ -24,6 +24,7 @@ import {
 import { CAGED_SHAPES, type CagedShape, cagedBoxRange, type FretRange } from './components/soloin-fretboard/caged';
 import { findTuning, TUNINGS, type Tuning, type TuningName } from './components/soloin-fretboard/tunings';
 import { RiffTab } from './components/riff-tab/riff-tab';
+import { ToggleSwitch } from './components/toggle-switch/toggle-switch';
 import { IDENTIFY_MIN_NOTES, identifyScales, type IdentifyGroup, type IdentifyMatch } from './identify';
 import { riffsFor, type Riff } from './riffs';
 import { marksToNumbers, numbersToMarks, type SoloinSessionState } from './session-state';
@@ -67,6 +68,9 @@ function detectKeyCandidates(chordNames: string[]): KeyCandidate[] {
 }
 
 type InputMode = 'progression' | 'key' | 'identify';
+// What the top-level tabs show: Practice is Key mode with the drill running,
+// surfaced as its own tab so it doesn't nest under Key's controls.
+type View = InputMode | 'practice';
 type LabelMode = 'notes' | 'degrees';
 type HighlightMode = 'all' | 'caged';
 
@@ -116,6 +120,7 @@ interface CopyText {
   progressionLabel: string;
   placeholder: string;
   keyLabel: string;
+  controlsLabel: string;
   scaleLabel: string;
   scaleNames: Record<ScaleName, string>;
   major: string;
@@ -231,6 +236,7 @@ const COPY: Record<Language, CopyText> = {
     progressionLabel: 'Chord progression',
     placeholder: 'e.g. Am, F, C, G',
     keyLabel: 'Key',
+    controlsLabel: 'Controls',
     scaleLabel: 'Scale',
     scaleNames: {
       ionian: 'Ionian (Major)',
@@ -328,6 +334,7 @@ const COPY: Record<Language, CopyText> = {
     progressionLabel: 'Progresión de acordes',
     placeholder: 'ej. Am, F, C, G',
     keyLabel: 'Tonalidad',
+    controlsLabel: 'Controles',
     scaleLabel: 'Escala',
     scaleNames: {
       ionian: 'Jónico (Mayor)',
@@ -401,7 +408,7 @@ const COPY: Record<Language, CopyText> = {
 
 @Component({
   selector: 'the-chords-soloin',
-  imports: [SoloinFretboard, RiffTab],
+  imports: [SoloinFretboard, RiffTab, ToggleSwitch],
   templateUrl: './soloin.html',
   styleUrl: './soloin.scss',
   host: { '[attr.lang]': 'language()' },
@@ -507,9 +514,12 @@ export class SoloinComponent {
     effect(() => {
       const running = this.practiceOn() && this.transportPlaying();
       if (running) {
-        if (this.practiceStartBeat() === null) {
-          this.practiceStartBeat.set(this.beatEvent()?.totalBeatIndex ?? 0);
-        }
+        const start = this.practiceStartBeat();
+        const now = this.beatEvent()?.totalBeatIndex ?? 0;
+        // now < start = the anchor came from a stale event left over from the
+        // transport's previous run (it restarts at 0) — re-anchor, otherwise
+        // the count-in waits out the whole stale offset ("Starting in 32…").
+        if (start === null || now < start) this.practiceStartBeat.set(now);
       } else if (this.practiceStartBeat() !== null) {
         this.practiceStartBeat.set(null);
       }
@@ -893,6 +903,15 @@ export class SoloinComponent {
     this.mode.set(mode);
   }
 
+  readonly view = computed<View>(() => (this.mode() === 'key' && this.practiceOn() ? 'practice' : this.mode()));
+
+  setView(view: View): void {
+    this.setMode(view === 'practice' ? 'key' : view);
+    this.setPracticeOn(view === 'practice');
+    // Re-apply the submode so its highlight (whole neck vs CAGED box) is in force.
+    if (view === 'practice') this.setPracticeSubmode(this.practiceSubmode());
+  }
+
   toggleKeyMarkMode(): void {
     this.keyMarkMode.update((on) => !on);
   }
@@ -1094,12 +1113,12 @@ export class SoloinComponent {
     });
   }
 
-  toggleScaleNotes(event: Event): void {
-    this.showScaleNotes.set((event.target as HTMLInputElement).checked);
+  toggleScaleNotes(on: boolean): void {
+    this.showScaleNotes.set(on);
   }
 
-  toggleChordTones(event: Event): void {
-    this.showChordTones.set((event.target as HTMLInputElement).checked);
+  toggleChordTones(on: boolean): void {
+    this.showChordTones.set(on);
   }
 
   private resetPracticeClock(): void {
@@ -1115,9 +1134,8 @@ export class SoloinComponent {
     this.practiceSubmode.set(submode);
     // Box-stepping and riffs only have something to show once CAGED
     // highlighting (and its per-box fret filtering) is actually on.
-    if ((submode === 'caged' || submode === 'riff') && this.highlightMode() !== 'caged') {
-      this.highlightMode.set('caged');
-    }
+    // Scale drills run the whole neck; non-standard tunings have no CAGED.
+    this.highlightMode.set(submode === 'scale' || !this.isStandardTuning() ? 'all' : 'caged');
     this.resetPracticeClock();
   }
 
@@ -1143,18 +1161,18 @@ export class SoloinComponent {
     this.resetPracticeClock();
   }
 
-  togglePracticeCountIn(event: Event): void {
-    this.practiceCountIn.set((event.target as HTMLInputElement).checked);
+  togglePracticeCountIn(on: boolean): void {
+    this.practiceCountIn.set(on);
     this.resetPracticeClock();
   }
 
-  togglePracticeLoop(event: Event): void {
-    this.practiceLoop.set((event.target as HTMLInputElement).checked);
+  togglePracticeLoop(on: boolean): void {
+    this.practiceLoop.set(on);
     this.resetPracticeClock();
   }
 
-  toggleKeyMarksInProgression(event: Event): void {
-    this.showKeyMarksInProgression.set((event.target as HTMLInputElement).checked);
+  toggleKeyMarksInProgression(on: boolean): void {
+    this.showKeyMarksInProgression.set(on);
   }
 
   // Read-only projection for Progression's per-chord fretboards — never the raw

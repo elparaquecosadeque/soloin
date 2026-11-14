@@ -1,362 +1,518 @@
 <div class="soloin">
   <header class="header">
-    <h2 class="title">{{ text().title }}</h2>
-    <p class="subtitle">{{ text().subtitle }}</p>
+    <div class="header-text">
+      <h2 class="title">{{ text().title }}</h2>
+      <p class="subtitle">{{ text().subtitle }}</p>
+    </div>
+    <div class="mode-toggle" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="view() === 'progression'"
+        [class.active]="view() === 'progression'"
+        (click)="setView('progression')"
+      >
+        {{ text().progressionModeLabel }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="view() === 'key'"
+        [class.active]="view() === 'key'"
+        (click)="setView('key')"
+      >
+        {{ text().keyModeLabel }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="view() === 'practice'"
+        [class.active]="view() === 'practice'"
+        (click)="setView('practice')"
+      >
+        {{ text().practiceToggle }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="view() === 'identify'"
+        [class.active]="view() === 'identify'"
+        (click)="setView('identify')"
+      >
+        {{ text().identifyModeLabel }}
+      </button>
+    </div>
   </header>
 
-  <div class="mode-toggle" role="tablist">
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="mode() === 'progression'"
-      [class.active]="mode() === 'progression'"
-      (click)="setMode('progression')"
-    >
-      {{ text().progressionModeLabel }}
-    </button>
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="mode() === 'key'"
-      [class.active]="mode() === 'key'"
-      (click)="setMode('key')"
-    >
-      {{ text().keyModeLabel }}
-    </button>
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="mode() === 'identify'"
-      [class.active]="mode() === 'identify'"
-      (click)="setMode('identify')"
-    >
-      {{ text().identifyModeLabel }}
-    </button>
-  </div>
-
-  @if (mode() === 'progression') {
-    <div class="control">
-      <label class="control-label" for="soloin-progression">{{ text().progressionLabel }}</label>
-      <input
-        id="soloin-progression"
-        class="text-input"
-        type="text"
-        [value]="progressionInput()"
-        (input)="onProgressionInput($event)"
-        [placeholder]="text().placeholder"
-        autocomplete="off"
-        spellcheck="false"
-      />
-    </div>
-    <p class="key-readout">
-      {{ detectedKeyLabel() ? text().detectedKey(detectedKeyLabel()!) : text().noKeyDetected }}
-    </p>
-    @if (tiedKeyAlternatives().length > 1) {
-      <div class="key-alternatives">
-        <span class="key-alternatives-label">{{ text().alsoFitsLabel }}</span>
-        @for (key of tiedKeyAlternatives(); track key.root + key.mode) {
-          <button
-            type="button"
-            class="key-alternative"
-            [class.active]="activeKey()?.root === key.root && activeKey()?.mode === key.mode"
-            (click)="selectKeyOverride(key)"
-          >
-            {{ keyLabel(key) }}
-          </button>
+  <details class="section-panel" open>
+    <summary>{{ text().controlsLabel }}</summary>
+    <div class="controls">
+      <div class="control-grid">
+        @if (mode() === 'key') {
+          <div class="control">
+            <label class="control-label" for="soloin-key">{{ text().keyLabel }}</label>
+            <select id="soloin-key" class="select-input" (change)="onKeyChange($event)">
+              @for (key of allKeys; track key.root + key.mode; let i = $index) {
+                <option [value]="i" [selected]="i === selectedKeyIndex()">
+                  {{ keyLabel(key) }}
+                </option>
+              }
+            </select>
+          </div>
         }
-      </div>
-    }
-    @if (unparsedChords().length > 0) {
-      <ul class="chord-warnings">
-        @for (item of unparsedChords(); track item.raw) {
-          <li>{{ text().unrecognizedChord(item.raw, item.suggestion) }}</li>
-        }
-      </ul>
-    }
-  }
 
-  <div class="controls">
-    <div class="control-grid">
-      @if (mode() === 'key') {
+        @if (mode() !== 'identify') {
+          <div class="control">
+            <label class="control-label" for="soloin-scale">{{ text().scaleLabel }}</label>
+            <select id="soloin-scale" class="select-input" (change)="onScaleChange($event)">
+              @for (scale of scaleOrder; track scale) {
+                <option [value]="scale" [selected]="scale === effectiveScale()">
+                  {{ text().scaleNames[scale] }}
+                </option>
+              }
+            </select>
+          </div>
+        }
+
         <div class="control">
-          <label class="control-label" for="soloin-key">{{ text().keyLabel }}</label>
-          <select id="soloin-key" class="select-input" (change)="onKeyChange($event)">
-            @for (key of allKeys; track key.root + key.mode; let i = $index) {
-              <option [value]="i" [selected]="i === selectedKeyIndex()">{{ keyLabel(key) }}</option>
+          <label class="control-label" for="soloin-tuning">{{ text().tuningLabel }}</label>
+          <select id="soloin-tuning" class="select-input" (change)="setTuning($event)">
+            @for (t of tunings; track t.name) {
+              <option [value]="t.name" [selected]="t.name === tuningName()">
+                {{ text().tuningNames[t.name] }}
+              </option>
             }
           </select>
         </div>
-      }
+      </div>
 
       @if (mode() !== 'identify') {
-        <div class="control">
-          <label class="control-label" for="soloin-scale">{{ text().scaleLabel }}</label>
-          <select id="soloin-scale" class="select-input" (change)="onScaleChange($event)">
-            @for (scale of scaleOrder; track scale) {
-              <option [value]="scale" [selected]="scale === effectiveScale()">{{ text().scaleNames[scale] }}</option>
-            }
-          </select>
+        <div class="control-row">
+          <div class="view-toggle" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="labelMode() === 'notes'"
+              [class.active]="labelMode() === 'notes'"
+              (click)="setLabelMode('notes')"
+            >
+              {{ text().notesLabelMode }}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="labelMode() === 'degrees'"
+              [class.active]="labelMode() === 'degrees'"
+              (click)="setLabelMode('degrees')"
+            >
+              {{ text().degreesLabelMode }}
+            </button>
+          </div>
+
+          <!-- Practice picks the highlight itself (per drill), so the toggle would only repeat it. -->
+          @if (view() !== 'practice') {
+            <div class="control">
+              <span class="control-label">{{ text().highlightLabel }}</span>
+              <div class="view-toggle" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="highlightMode() === 'all'"
+                  [class.active]="highlightMode() === 'all'"
+                  (click)="setHighlightMode('all')"
+                >
+                  {{ text().highlightAll }}
+                </button>
+                @if (isStandardTuning()) {
+                  <button
+                    type="button"
+                    role="tab"
+                    [attr.aria-selected]="highlightMode() === 'caged'"
+                    [class.active]="highlightMode() === 'caged'"
+                    (click)="setHighlightMode('caged')"
+                  >
+                    {{ text().highlightCaged }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- In Practice only the Riff drill needs a box chosen by hand; the CAGED drill steps through them itself. -->
+          @if (
+            highlightMode() === 'caged' &&
+            isStandardTuning() &&
+            (view() !== 'practice' || practiceSubmode() === 'riff')
+          ) {
+            <div class="control">
+              <span class="control-label">{{ text().boxLabel }}</span>
+              <div class="view-toggle" role="tablist">
+                @for (shape of cagedShapes; track shape) {
+                  <button
+                    type="button"
+                    role="tab"
+                    [attr.aria-selected]="
+                      practiceCagedShape()
+                        ? practiceCagedShape() === shape
+                        : selectedCagedShapes().has(shape)
+                    "
+                    [class.active]="
+                      practiceCagedShape()
+                        ? practiceCagedShape() === shape
+                        : selectedCagedShapes().has(shape)
+                    "
+                    (click)="toggleCagedShape(shape)"
+                  >
+                    {{ shape }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          @if (mode() === 'progression' && chordLayers().length > 0) {
+            <div class="view-toggle" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-selected]="chordView() === 'mosaic'"
+                [class.active]="chordView() === 'mosaic'"
+                (click)="setChordView('mosaic')"
+                [attr.aria-label]="text().mosaicView"
+                [attr.title]="text().mosaicView"
+              >
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-selected]="chordView() === 'carousel'"
+                [class.active]="chordView() === 'carousel'"
+                (click)="setChordView('carousel')"
+                [attr.aria-label]="text().carouselView"
+                [attr.title]="text().carouselView"
+              >
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="7" y="4" width="10" height="16" rx="1" />
+                  <path d="M3 7v10" />
+                  <path d="M21 7v10" />
+                </svg>
+              </button>
+            </div>
+
+            <soloin-toggle-switch
+              [label]="text().showScaleNotes"
+              [checked]="showScaleNotes()"
+              (toggled)="toggleScaleNotes($event)"
+            />
+            <soloin-toggle-switch
+              [label]="text().showKeyMarks"
+              [checked]="showKeyMarksInProgression()"
+              [disabled]="keyMarks().size === 0"
+              (toggled)="toggleKeyMarksInProgression($event)"
+            />
+          }
+
+          @if (view() === 'key') {
+            <!-- One control: the toggle carries the count, the attached button clears it. -->
+            <div class="mark-group">
+              <button
+                type="button"
+                class="mark-toggle"
+                [attr.aria-pressed]="keyMarkMode()"
+                (click)="toggleKeyMarkMode()"
+              >
+                {{ text().markToggle }}
+                @if (keyMarks().size > 0) {
+                  <span class="mark-badge">{{ keyMarks().size }}</span>
+                }
+              </button>
+              <button
+                type="button"
+                class="mark-clear"
+                (click)="clearKeyMarks()"
+                [disabled]="keyMarks().size === 0"
+                [attr.aria-label]="text().markClear"
+                [attr.title]="text().markClear"
+              >
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                  <path
+                    d="M4 4l8 8M12 4l-8 8"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          }
+
+          @if (mode() === 'key') {
+            <soloin-toggle-switch
+              [label]="text().showChordTones"
+              [checked]="showChordTones()"
+              (toggled)="toggleChordTones($event)"
+            />
+          }
         </div>
       }
-
-      <div class="control">
-        <label class="control-label" for="soloin-tuning">{{ text().tuningLabel }}</label>
-        <select id="soloin-tuning" class="select-input" (change)="setTuning($event)">
-          @for (t of tunings; track t.name) {
-            <option [value]="t.name" [selected]="t.name === tuningName()">{{ text().tuningNames[t.name] }}</option>
-          }
-        </select>
-      </div>
     </div>
+  </details>
 
-    @if (mode() !== 'identify') {
-    <div class="control-row">
-      <div class="view-toggle" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          [attr.aria-selected]="labelMode() === 'notes'"
-          [class.active]="labelMode() === 'notes'"
-          (click)="setLabelMode('notes')"
-        >
-          {{ text().notesLabelMode }}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          [attr.aria-selected]="labelMode() === 'degrees'"
-          [class.active]="labelMode() === 'degrees'"
-          (click)="setLabelMode('degrees')"
-        >
-          {{ text().degreesLabelMode }}
-        </button>
-      </div>
+  @if (view() === 'key') {
+    <p class="mark-hint" aria-live="polite">
+      {{ keyMarkMode() ? text().markHintEditing(keyMarks().size) : '' }}
+    </p>
+  }
 
-      <div class="control">
-        <span class="control-label">{{ text().highlightLabel }}</span>
+  @if (view() === 'practice') {
+    <div class="practice-panel">
+      <div class="control-row">
         <div class="view-toggle" role="tablist">
           <button
             type="button"
             role="tab"
-            [attr.aria-selected]="highlightMode() === 'all'"
-            [class.active]="highlightMode() === 'all'"
-            (click)="setHighlightMode('all')"
+            [attr.aria-selected]="practiceSubmode() === 'scale'"
+            [class.active]="practiceSubmode() === 'scale'"
+            (click)="setPracticeSubmode('scale')"
           >
-            {{ text().highlightAll }}
+            {{ text().practiceScale }}
           </button>
           @if (isStandardTuning()) {
             <button
               type="button"
               role="tab"
-              [attr.aria-selected]="highlightMode() === 'caged'"
-              [class.active]="highlightMode() === 'caged'"
-              (click)="setHighlightMode('caged')"
+              [attr.aria-selected]="practiceSubmode() === 'caged'"
+              [class.active]="practiceSubmode() === 'caged'"
+              (click)="setPracticeSubmode('caged')"
             >
-              {{ text().highlightCaged }}
-            </button>
-          }
-        </div>
-      </div>
-
-      @if (mode() === 'progression' && chordLayers().length > 0) {
-        <div class="view-toggle" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            [attr.aria-selected]="chordView() === 'mosaic'"
-            [class.active]="chordView() === 'mosaic'"
-            (click)="setChordView('mosaic')"
-          >
-            {{ text().mosaicView }}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            [attr.aria-selected]="chordView() === 'carousel'"
-            [class.active]="chordView() === 'carousel'"
-            (click)="setChordView('carousel')"
-          >
-            {{ text().carouselView }}
-          </button>
-        </div>
-
-        <label class="scale-toggle">
-          <input type="checkbox" [checked]="showScaleNotes()" (change)="toggleScaleNotes($event)" />
-          {{ text().showScaleNotes }}
-        </label>
-
-        <label class="scale-toggle" [class.disabled]="keyMarks().size === 0">
-          <input
-            type="checkbox"
-            [checked]="showKeyMarksInProgression()"
-            [disabled]="keyMarks().size === 0"
-            (change)="toggleKeyMarksInProgression($event)"
-          />
-          {{ text().showKeyMarks }}
-        </label>
-      }
-    </div>
-
-    @if (mode() === 'key') {
-      <div class="mark-row">
-        <button type="button" class="mark-toggle" [attr.aria-pressed]="keyMarkMode()" (click)="toggleKeyMarkMode()">
-          {{ text().markToggle }}
-        </button>
-        <p class="mark-hint" aria-live="polite">
-          {{ keyMarkMode() ? text().markHintEditing(keyMarks().size) : keyMarks().size > 0 ? text().markCount(keyMarks().size) : '' }}
-        </p>
-        <button type="button" class="mark-clear" (click)="clearKeyMarks()" [disabled]="keyMarks().size === 0">
-          {{ text().markClear }}
-        </button>
-        <label class="scale-toggle">
-          <input type="checkbox" [checked]="showChordTones()" (change)="toggleChordTones($event)" />
-          {{ text().showChordTones }}
-        </label>
-      </div>
-    }
-
-    @if ((highlightMode() === 'caged' && isStandardTuning()) || mode() === 'key') {
-      <div class="control-row">
-        @if (highlightMode() === 'caged' && isStandardTuning()) {
-          <div class="control">
-            <span class="control-label">{{ text().boxLabel }}</span>
-            <div class="view-toggle" role="tablist">
-              @for (shape of cagedShapes; track shape) {
-                <button
-                  type="button"
-                  role="tab"
-                  [disabled]="practiceOn() && practiceSubmode() === 'caged'"
-                  [attr.aria-selected]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
-                  [class.active]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
-                  (click)="toggleCagedShape(shape)"
-                >
-                  {{ shape }}
-                </button>
-              }
-            </div>
-          </div>
-        }
-
-        @if (mode() === 'key') {
-          <div class="view-toggle" role="tablist">
-            <button type="button" role="tab" [attr.aria-selected]="!practiceOn()" [class.active]="!practiceOn()" (click)="setPracticeOn(false)">
-              {{ text().practiceManual }}
-            </button>
-            <button type="button" role="tab" [attr.aria-selected]="practiceOn()" [class.active]="practiceOn()" (click)="setPracticeOn(true)">
-              {{ text().practiceToggle }}
-            </button>
-          </div>
-        }
-      </div>
-    }
-
-    @if (mode() === 'key') {
-      @if (practiceOn()) {
-        <div class="practice-panel">
-          <div class="view-toggle" role="tablist">
-            <button type="button" role="tab" [attr.aria-selected]="practiceSubmode() === 'scale'" [class.active]="practiceSubmode() === 'scale'" (click)="setPracticeSubmode('scale')">
-              {{ text().practiceScale }}
-            </button>
-            <button type="button" role="tab" [attr.aria-selected]="practiceSubmode() === 'caged'" [class.active]="practiceSubmode() === 'caged'" (click)="setPracticeSubmode('caged')">
               {{ text().practiceCaged }}
             </button>
-            <button type="button" role="tab" [attr.aria-selected]="practiceSubmode() === 'riff'" [class.active]="practiceSubmode() === 'riff'" (click)="setPracticeSubmode('riff')">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="practiceSubmode() === 'riff'"
+              [class.active]="practiceSubmode() === 'riff'"
+              (click)="setPracticeSubmode('riff')"
+            >
               {{ text().practiceRiff }}
             </button>
-          </div>
-
-          @if (practiceSubmode() === 'scale') {
-            <div class="control-row">
-              <div class="view-toggle" role="tablist">
-                <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'up'" [class.active]="practiceDirection() === 'up'" (click)="setPracticeDirection('up')">
-                  {{ text().practiceUp }}
-                </button>
-                <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'down'" [class.active]="practiceDirection() === 'down'" (click)="setPracticeDirection('down')">
-                  {{ text().practiceDown }}
-                </button>
-                <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'updown'" [class.active]="practiceDirection() === 'updown'" (click)="setPracticeDirection('updown')">
-                  {{ text().practiceUpDown }}
-                </button>
-              </div>
-              <div class="practice-stepper">
-                <span>{{ text().practiceBeatsPerNote }}</span>
-                <button type="button" (click)="adjustPracticeNoteBeats(-1)" aria-label="-">&minus;</button>
-                <output>{{ practiceNoteBeats() }}</output>
-                <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
-              </div>
-            </div>
-          } @else if (practiceSubmode() === 'caged') {
-            <div class="practice-stepper">
-              <span>{{ text().practiceBeatsPerBox }}</span>
-              <button type="button" (click)="adjustPracticeBoxBeats(-1)" aria-label="-">&minus;</button>
-              <output>{{ practiceBoxBeats() }}</output>
-              <button type="button" (click)="adjustPracticeBoxBeats(1)" aria-label="+">+</button>
-            </div>
-          } @else if (activeRiff(); as riff) {
-            <div class="practice-stepper">
-              <button type="button" (click)="stepRiff(-1)" [attr.aria-label]="text().previous">‹</button>
-              <output>{{ riff.name[language()] }} — {{ text().riffOf(riffIndex() + 1, availableRiffs().length) }}</output>
-              <button type="button" (click)="stepRiff(1)" [attr.aria-label]="text().next">›</button>
-            </div>
-          } @else {
-            <p class="practice-status">{{ text().riffUnavailable }}</p>
           }
+        </div>
+        <soloin-toggle-switch
+          [label]="text().practiceCountIn"
+          [checked]="practiceCountIn()"
+          (toggled)="togglePracticeCountIn($event)"
+        />
+        <button
+          type="button"
+          class="icon-toggle"
+          [attr.aria-pressed]="practiceLoop()"
+          [attr.aria-label]="text().practiceLoop"
+          [attr.title]="text().practiceLoop"
+          (click)="togglePracticeLoop(!practiceLoop())"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m17 2 4 4-4 4" />
+            <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+            <path d="m7 22-4-4 4-4" />
+            <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+          </svg>
+        </button>
+      </div>
 
-          <div class="mark-row">
-            <label class="scale-toggle">
-              <input type="checkbox" [checked]="practiceCountIn()" (change)="togglePracticeCountIn($event)" />
-              {{ text().practiceCountIn }}
-            </label>
-            <label class="scale-toggle">
-              <input type="checkbox" [checked]="practiceLoop()" (change)="togglePracticeLoop($event)" />
-              {{ text().practiceLoop }}
-            </label>
+      @if (practiceSubmode() === 'scale') {
+        <div class="control-row">
+          <div class="view-toggle" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="practiceDirection() === 'up'"
+              [class.active]="practiceDirection() === 'up'"
+              (click)="setPracticeDirection('up')"
+              [attr.aria-label]="text().practiceUp"
+              [attr.title]="text().practiceUp"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="practiceDirection() === 'down'"
+              [class.active]="practiceDirection() === 'down'"
+              (click)="setPracticeDirection('down')"
+              [attr.aria-label]="text().practiceDown"
+              [attr.title]="text().practiceDown"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="m19 12-7 7-7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="practiceDirection() === 'updown'"
+              [class.active]="practiceDirection() === 'updown'"
+              (click)="setPracticeDirection('updown')"
+              [attr.aria-label]="text().practiceUpDown"
+              [attr.title]="text().practiceUpDown"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m21 16-4 4-4-4" />
+                <path d="M17 20V4" />
+                <path d="m3 8 4-4 4 4" />
+                <path d="M7 4v16" />
+              </svg>
+            </button>
           </div>
+          <div class="practice-stepper">
+            <span>{{ text().practiceBeatsPerNote }}</span>
+            <button type="button" (click)="adjustPracticeNoteBeats(-1)" aria-label="-">
+              &minus;
+            </button>
+            <output>{{ practiceNoteBeats() }}</output>
+            <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
+          </div>
+        </div>
+      } @else if (practiceSubmode() === 'caged') {
+        <div class="practice-stepper">
+          <span>{{ text().practiceBeatsPerBox }}</span>
+          <button type="button" (click)="adjustPracticeBoxBeats(-1)" aria-label="-">&minus;</button>
+          <output>{{ practiceBoxBeats() }}</output>
+          <button type="button" (click)="adjustPracticeBoxBeats(1)" aria-label="+">+</button>
+        </div>
+      } @else if (activeRiff(); as riff) {
+        <div class="practice-stepper">
+          <button type="button" (click)="stepRiff(-1)" [attr.aria-label]="text().previous">
+            ‹
+          </button>
+          <output
+            >{{ riff.name[language()] }} —
+            {{ text().riffOf(riffIndex() + 1, availableRiffs().length) }}</output
+          >
+          <button type="button" (click)="stepRiff(1)" [attr.aria-label]="text().next">›</button>
+        </div>
+        <soloin-riff-tab
+          [riff]="riff"
+          [boxStart]="practiceRiffBoxStart()"
+          [title]="riffTitle()"
+          [strings]="tuning().strings"
+          [scaleNotes]="scaleNotes()"
+          [scaleLabels]="scaleLabels()"
+          [scaleRoot]="activeKey()?.root ?? null"
+          [progress]="practiceRiffProgress()"
+        />
+      } @else {
+        <p class="practice-status">{{ text().riffUnavailable }}</p>
+      }
 
-          @if (practiceSubmode() === 'riff' && activeRiff(); as riff) {
-            <soloin-riff-tab
-              [riff]="riff"
-              [boxStart]="practiceRiffBoxStart()"
-              [title]="riffTitle()"
-              [strings]="tuning().strings"
-              [scaleNotes]="scaleNotes()"
-              [scaleLabels]="scaleLabels()"
-              [scaleRoot]="activeKey()?.root ?? null"
-              [progress]="practiceRiffProgress()"
-            />
-          }
-
-          @if (!transportPlaying()) {
-            <p class="practice-status">{{ text().practiceNeedsTransport }}</p>
-          } @else if (practiceCountingInBeats(); as beats) {
-            <p class="practice-status">{{ text().practiceCountingIn(beats) }}</p>
-          } @else if (practiceSubmode() === 'riff') {
-            @if (activeRiff(); as riff) {
-              @if (practiceRiffElapsed(); as elapsed) {
-                <p class="practice-status">
-                  {{ text().riffStatus(riff.name[language()], (practiceRiffNoteIndex() ?? 0) + 1, riff.notes.length) }}
-                </p>
-              }
-            }
-          } @else if (practiceStep(); as step) {
+      @if (!transportPlaying()) {
+        <p class="practice-status">{{ text().practiceNeedsTransport }}</p>
+      } @else if (practiceCountingInBeats(); as beats) {
+        <p class="practice-status">{{ text().practiceCountingIn(beats) }}</p>
+      } @else if (practiceSubmode() === 'riff') {
+        @if (activeRiff(); as riff) {
+          @if (practiceRiffElapsed(); as elapsed) {
             <p class="practice-status">
               {{
-                practiceSubmode() === 'scale'
-                  ? text().practiceNoteStatus(practiceNoteLayer()?.label ?? '', step.beatInStep + 1, step.beatsPerStep)
-                  : text().practiceBoxStatus(practiceCagedShape() ?? '', step.beatInStep + 1, step.beatsPerStep)
+                text().riffStatus(
+                  riff.name[language()],
+                  (practiceRiffNoteIndex() ?? 0) + 1,
+                  riff.notes.length
+                )
               }}
             </p>
           }
+        }
+      } @else if (practiceStep(); as step) {
+        <p class="practice-status">
+          {{
+            practiceSubmode() === 'scale'
+              ? text().practiceNoteStatus(
+                  practiceNoteLayer()?.label ?? '',
+                  step.beatInStep + 1,
+                  step.beatsPerStep
+                )
+              : text().practiceBoxStatus(
+                  practiceCagedShape() ?? '',
+                  step.beatInStep + 1,
+                  step.beatsPerStep
+                )
+          }}
+        </p>
+      }
+    </div>
+  }
+
+  @if (mode() === 'progression') {
+    <div class="section-body">
+      <label class="control-label" for="soloin-progression">{{ text().progressionLabel }}</label>
+      <div class="control">
+        <input
+          id="soloin-progression"
+          class="text-input"
+          type="text"
+          [value]="progressionInput()"
+          (input)="onProgressionInput($event)"
+          [placeholder]="text().placeholder"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <p class="key-readout">
+        {{ detectedKeyLabel() ? text().detectedKey(detectedKeyLabel()!) : text().noKeyDetected }}
+      </p>
+      @if (tiedKeyAlternatives().length > 1) {
+        <div class="key-alternatives">
+          <span class="key-alternatives-label">{{ text().alsoFitsLabel }}</span>
+          @for (key of tiedKeyAlternatives(); track key.root + key.mode) {
+            <button
+              type="button"
+              class="key-alternative"
+              [class.active]="activeKey()?.root === key.root && activeKey()?.mode === key.mode"
+              (click)="selectKeyOverride(key)"
+            >
+              {{ keyLabel(key) }}
+            </button>
+          }
         </div>
       }
-    }
-    }
-  </div>
+      @if (unparsedChords().length > 0) {
+        <ul class="chord-warnings">
+          @for (item of unparsedChords(); track item.raw) {
+            <li>{{ text().unrecognizedChord(item.raw, item.suggestion) }}</li>
+          }
+        </ul>
+      }
+    </div>
+  }
 
   @if (mode() === 'identify') {
     <div class="identify">
       <div class="control">
-        <label class="control-label" for="soloin-identify-chords">{{ text().identifyChordsLabel }}</label>
+        <label class="control-label" for="soloin-identify-chords">{{
+          text().identifyChordsLabel
+        }}</label>
         <input
           id="soloin-identify-chords"
           class="text-input"
@@ -378,7 +534,12 @@
 
       <div class="identify-toolbar">
         <p class="identify-hint" aria-live="polite">{{ identifyHint() }}</p>
-        <button type="button" class="identify-clear" (click)="clearIdentifyMarks()" [disabled]="identifyMarks().size === 0">
+        <button
+          type="button"
+          class="identify-clear"
+          (click)="clearIdentifyMarks()"
+          [disabled]="identifyMarks().size === 0"
+        >
           {{ text().identifyClear }}
         </button>
       </div>
@@ -412,7 +573,11 @@
                       class="identify-chip"
                       [class.suggested]="chip.suggested"
                       [class.previewing]="isPreviewing(chip.match)"
-                      [title]="chip.suggested ? text().identifySuggestedHint + ' — ' + text().identifyApply : text().identifyApply"
+                      [title]="
+                        chip.suggested
+                          ? text().identifySuggestedHint + ' — ' + text().identifyApply
+                          : text().identifyApply
+                      "
                       (pointerenter)="onChipPointerEnter(chip.match, $event)"
                       (pointerleave)="onChipPointerLeave(chip.match, $event)"
                       (pointerdown)="onChipPointerDown(chip.match, $event)"
@@ -475,14 +640,25 @@
     } @else {
       <div class="carousel">
         <div class="carousel-nav">
-          <button type="button" (click)="stepCarousel(-1)" [disabled]="carouselDisplayIndex() === 0">‹ {{ text().previous }}</button>
+          <button
+            type="button"
+            (click)="stepCarousel(-1)"
+            [disabled]="carouselDisplayIndex() === 0"
+          >
+            ‹ {{ text().previous }}
+          </button>
           <span class="carousel-label">
-            {{ activeChordLayer()?.label }} · {{ text().chordOf(carouselDisplayIndex() + 1, chordLayers().length) }}
+            {{ activeChordLayer()?.label }} ·
+            {{ text().chordOf(carouselDisplayIndex() + 1, chordLayers().length) }}
             @if (activeChordLayer() && !activeChordLayer()!.diatonic) {
               <span class="diatonic-badge">{{ text().nonDiatonicBadge }}</span>
             }
           </span>
-          <button type="button" (click)="stepCarousel(1)" [disabled]="carouselDisplayIndex() === chordLayers().length - 1">
+          <button
+            type="button"
+            (click)="stepCarousel(1)"
+            [disabled]="carouselDisplayIndex() === chordLayers().length - 1"
+          >
             {{ text().next }} ›
           </button>
         </div>
@@ -505,7 +681,11 @@
     <div class="legend" role="list" [attr.aria-label]="text().legendLabel">
       @for (layer of chordLayers(); track layer.label + layer.colorVar) {
         <span class="legend-item" role="listitem">
-          <span class="legend-dot" [style.background]="'var(' + layer.colorVar + ')'" aria-hidden="true"></span>
+          <span
+            class="legend-dot"
+            [style.background]="'var(' + layer.colorVar + ')'"
+            aria-hidden="true"
+          ></span>
           <span>{{ layer.label }}</span>
           @if (!layer.diatonic) {
             <span class="diatonic-badge">{{ text().nonDiatonicBadge }}</span>
@@ -516,14 +696,26 @@
   }
 
   @if (mode() !== 'identify' && !keyEditing()) {
-  <div class="actions">
-    <button type="button" (click)="exportPng()" [disabled]="!canExportImage()" [title]="canExportImage() ? '' : text().exportUnavailable">
-      {{ text().exportPng }}
-    </button>
-    <button type="button" (click)="exportPdf()" [disabled]="!canExportImage()" [title]="canExportImage() ? '' : text().exportUnavailable">
-      {{ text().exportPdf }}
-    </button>
-    <button type="button" (click)="copyAsText()">{{ copied() ? text().copied : text().copyText }}</button>
-  </div>
+    <div class="actions">
+      <button
+        type="button"
+        (click)="exportPng()"
+        [disabled]="!canExportImage()"
+        [title]="canExportImage() ? '' : text().exportUnavailable"
+      >
+        {{ text().exportPng }}
+      </button>
+      <button
+        type="button"
+        (click)="exportPdf()"
+        [disabled]="!canExportImage()"
+        [title]="canExportImage() ? '' : text().exportUnavailable"
+      >
+        {{ text().exportPdf }}
+      </button>
+      <button type="button" (click)="copyAsText()">
+        {{ copied() ? text().copied : text().copyText }}
+      </button>
+    </div>
   }
 </div>

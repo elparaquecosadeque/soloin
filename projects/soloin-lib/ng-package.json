@@ -4,5 +4,8 @@
   "lib": {
     "entryFile": "src/public-api.ts"
   },
-  "allowedNonPeerDependencies": ["@gblp/music-theory"]
+  "allowedNonPeerDependencies": [
+    "@gblp/music-theory",
+    "gsap"
+  ]
 }
