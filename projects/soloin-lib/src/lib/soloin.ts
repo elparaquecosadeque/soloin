@@ -846,6 +846,11 @@ export class SoloinComponent {
     return shape && key ? cagedBoxRange(shape, key.root).start : 0;
   });
 
+  readonly riffTitle = computed(() => {
+    const key = this.activeKey();
+    return key ? noteName(key.root) + ' ' + this.text().scaleNames[this.effectiveScale()] : '';
+  });
+
   readonly practiceRiffProgress = computed<number | null>(() => {
     const riff = this.activeRiff();
     const pos = this.practiceRiffElapsed();

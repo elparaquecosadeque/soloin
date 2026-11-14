@@ -3,51 +3,160 @@
   --_chords-text: var(--chords-text, #1e293b);
   --_chords-muted: var(--chords-muted, #64748b);
   --_chords-border: var(--chords-border, #e2e8f0);
-  --_chords-chord-color-2: var(--chords-chord-color-2, var(--chords-secondary, #06b6d4));
+  --_chords-primary: var(--chords-primary, #2563eb);
+  --_chords-root: var(--chords-danger, #dc2626);
   --_chords-on-primary: var(--chords-on-primary, #ffffff);
 
   display: block;
+  max-width: 520px;
 }
 
-.riff-tab {
+.riff-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 18px;
+  background: var(--_chords-surface);
+}
+
+.riff-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--_chords-text);
+  }
+}
+
+.riff-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--_chords-muted);
+  font-variant-numeric: tabular-nums;
+
+  button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--_chords-border);
+    border-radius: 8px;
+    background: var(--_chords-surface);
+    color: var(--_chords-text);
+    cursor: pointer;
+    line-height: 1;
+
+    &:hover {
+      border-color: var(--_chords-primary);
+    }
+  }
+
+  button.play {
+    width: 36px;
+    margin-right: 6px;
+    border-color: var(--_chords-primary);
+    background: var(--_chords-primary);
+    color: var(--_chords-on-primary);
+    font-size: 0.7rem;
+  }
+
+  output {
+    min-width: 58px;
+    text-align: center;
+  }
+}
+
+svg {
   display: block;
-  max-width: 100%;
+  width: 100%;
   height: auto;
   overflow: visible;
 }
 
-.string-line {
-  stroke: var(--_chords-border);
-  stroke-width: 1;
-}
-
-.fret-bg {
-  fill: var(--_chords-surface);
-  stroke: var(--_chords-border);
-  stroke-width: 1;
-}
-
-.fret-number {
-  font-size: 10px;
-  font-weight: 700;
-  fill: var(--_chords-text);
+text {
   text-anchor: middle;
   dominant-baseline: central;
   pointer-events: none;
 }
 
-g.active {
-  .fret-bg {
-    fill: var(--_chords-chord-color-2);
-    stroke: var(--_chords-chord-color-2);
+.string-line,
+.fret-line {
+  stroke: var(--_chords-muted);
+  stroke-width: 1;
+}
+
+.fret-line.nut {
+  stroke-width: 2;
+}
+
+.string-name,
+.fret-label,
+.beat-number {
+  font-size: 11px;
+  fill: var(--_chords-muted);
+}
+
+.dot {
+  .halo {
+    fill: none;
   }
-  .fret-number {
+  .body {
+    fill: var(--_chords-text);
+  }
+  text {
+    font-size: 10px;
+    font-weight: 700;
+    fill: var(--_chords-surface);
+  }
+  &.root .body {
+    fill: var(--_chords-root);
+  }
+  &.root text {
+    fill: #fff;
+  }
+  &.active .halo {
+    fill: color-mix(in srgb, var(--_chords-primary) 35%, transparent);
+    stroke: var(--_chords-primary);
+    stroke-width: 2.5;
+  }
+}
+
+.riff-tab {
+  border-top: 1px solid var(--_chords-border);
+  padding-top: 8px;
+}
+
+.playhead {
+  fill: color-mix(in srgb, var(--_chords-primary) 18%, transparent);
+}
+
+.tab-mark {
+  rect {
+    fill: var(--_chords-surface);
+  }
+  text {
+    font-size: 14px;
+    font-weight: 700;
+    fill: var(--_chords-text);
+  }
+  &.active rect {
+    fill: var(--_chords-primary);
+  }
+  &.active text {
     fill: var(--_chords-on-primary);
   }
 }
 
 .riff-progress {
-  margin-top: 6px;
   height: 4px;
   border-radius: 999px;
   background: var(--_chords-border);
@@ -57,8 +166,6 @@ g.active {
 .riff-progress-fill {
   width: 100%;
   height: 100%;
-  background: var(--_chords-chord-color-2);
-  transform: scaleX(0);
+  background: var(--_chords-primary);
   transform-origin: left;
-  transition: transform 0.1s linear;
 }

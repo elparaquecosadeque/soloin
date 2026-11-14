@@ -317,7 +317,11 @@
             <soloin-riff-tab
               [riff]="riff"
               [boxStart]="practiceRiffBoxStart()"
-              [activeNoteIndex]="practiceRiffNoteIndex()"
+              [title]="riffTitle()"
+              [strings]="tuning().strings"
+              [scaleNotes]="scaleNotes()"
+              [scaleLabels]="scaleLabels()"
+              [scaleRoot]="activeKey()?.root ?? null"
               [progress]="practiceRiffProgress()"
             />
           }

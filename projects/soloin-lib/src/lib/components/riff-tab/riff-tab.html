@@ -1,24 +1,55 @@
-<svg
-  class="riff-tab"
-  [attr.viewBox]="'0 0 ' + width() + ' ' + height"
-  [attr.width]="width()"
-  [attr.height]="height"
-  role="img"
-  [attr.aria-label]="riff().name.en"
->
-  @for (y of stringYs; track y) {
-    <line class="string-line" [attr.x1]="0" [attr.y1]="y" [attr.x2]="width()" [attr.y2]="y" />
-  }
-  @for (mark of marks(); track $index) {
-    <g [class.active]="mark.active">
-      <circle class="fret-bg" [attr.cx]="mark.x" [attr.cy]="mark.y" r="8" />
-      <text class="fret-number" [attr.x]="mark.x" [attr.y]="mark.y">{{ mark.fret }}</text>
-    </g>
-  }
-</svg>
+<div class="riff-card">
+  <header class="riff-head">
+    <h3>{{ title() }}</h3>
+    <div class="riff-controls">
+      <button type="button" class="play" (click)="toggle()" [attr.aria-label]="playing() ? 'Pause' : 'Play'">
+        {{ playing() ? '❚❚' : '▶' }}
+      </button>
+      <button type="button" (click)="adjustBpm(-10)" aria-label="Slower">−</button>
+      <output>{{ bpm() }} bpm</output>
+      <button type="button" (click)="adjustBpm(10)" aria-label="Faster">+</button>
+    </div>
+  </header>
 
-@if (progress() !== null) {
-  <div class="riff-progress" role="progressbar" [attr.aria-valuenow]="progressPercent()">
-    <div class="riff-progress-fill" [style.transform]="'scaleX(' + (progress() ?? 0) + ')'"></div>
+  <svg class="riff-board" [attr.viewBox]="'0 0 ' + boardWidth() + ' ' + boardHeight" role="img" [attr.aria-label]="title()">
+    <line class="fret-line nut" [attr.x1]="34" [attr.y1]="16" [attr.x2]="34" [attr.y2]="boardBottom" />
+    @for (f of frets(); track f.fret) {
+      <line class="fret-line" [attr.x1]="f.lineX" [attr.y1]="16" [attr.x2]="f.lineX" [attr.y2]="boardBottom" />
+      <text class="fret-label" [attr.x]="f.labelX" [attr.y]="boardBottom + 24">{{ f.fret }}</text>
+    }
+    @for (y of boardStringYs; track y; let i = $index) {
+      <line class="string-line" [attr.x1]="34" [attr.y1]="y" [attr.x2]="boardRight()" [attr.y2]="y" />
+      <text class="string-name" x="14" [attr.y]="y">{{ stringNames[i] }}</text>
+    }
+    @for (dot of dots(); track $index) {
+      <g class="dot" [class.root]="dot.root" [class.active]="dot.active">
+        <circle class="halo" [attr.cx]="dot.x" [attr.cy]="dot.y" r="15" />
+        <circle class="body" [attr.cx]="dot.x" [attr.cy]="dot.y" r="11" />
+        <text [attr.x]="dot.x" [attr.y]="dot.y">{{ dot.label }}</text>
+      </g>
+    }
+  </svg>
+
+  <svg class="riff-tab" [attr.viewBox]="'0 0 ' + tabWidth() + ' ' + tabHeight" role="img" [attr.aria-label]="riff().name.en">
+    @if (pos() !== null) {
+      <rect class="playhead" [attr.x]="playheadX()" y="18" [attr.width]="playheadW" [attr.height]="tabHeight - 22" rx="4" />
+    }
+    @for (tick of beatTicks(); track tick.n) {
+      <text class="beat-number" [attr.x]="tick.x" y="10">{{ tick.n }}</text>
+    }
+    @for (y of tabLineYs; track y; let i = $index) {
+      <line class="string-line" [attr.x1]="18" [attr.y1]="y" [attr.x2]="tabWidth()" [attr.y2]="y" />
+      <text class="string-name" x="6" [attr.y]="y">{{ stringNames[i] }}</text>
+    }
+    @for (mark of tabMarks(); track $index) {
+      <g class="tab-mark" [class.active]="mark.active">
+        <rect [attr.x]="mark.x - 10" [attr.y]="mark.y - 10" width="20" height="20" rx="4" />
+        <text [attr.x]="mark.x" [attr.y]="mark.y">{{ mark.fret }}</text>
+      </g>
+    }
+  </svg>
+
+  <div class="riff-progress" role="progressbar" [attr.aria-valuenow]="(fraction() * 100).toFixed(0)">
+    <div class="riff-progress-fill" [style.transform]="'scaleX(' + fraction() + ')'"></div>
   </div>
-}
+</div>
