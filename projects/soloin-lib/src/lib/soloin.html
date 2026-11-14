@@ -208,44 +208,49 @@
         <button type="button" class="mark-clear" (click)="clearKeyMarks()" [disabled]="keyMarks().size === 0">
           {{ text().markClear }}
         </button>
+        <label class="scale-toggle">
+          <input type="checkbox" [checked]="showChordTones()" (change)="toggleChordTones($event)" />
+          {{ text().showChordTones }}
+        </label>
       </div>
-
-      <label class="scale-toggle">
-        <input type="checkbox" [checked]="showChordTones()" (change)="toggleChordTones($event)" />
-        {{ text().showChordTones }}
-      </label>
     }
 
-    @if (highlightMode() === 'caged' && isStandardTuning()) {
-      <div class="control">
-        <span class="control-label">{{ text().boxLabel }}</span>
-        <div class="view-toggle" role="tablist">
-          @for (shape of cagedShapes; track shape) {
-            <button
-              type="button"
-              role="tab"
-              [disabled]="practiceOn() && practiceSubmode() === 'caged'"
-              [attr.aria-selected]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
-              [class.active]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
-              (click)="toggleCagedShape(shape)"
-            >
-              {{ shape }}
+    @if ((highlightMode() === 'caged' && isStandardTuning()) || mode() === 'key') {
+      <div class="control-row">
+        @if (highlightMode() === 'caged' && isStandardTuning()) {
+          <div class="control">
+            <span class="control-label">{{ text().boxLabel }}</span>
+            <div class="view-toggle" role="tablist">
+              @for (shape of cagedShapes; track shape) {
+                <button
+                  type="button"
+                  role="tab"
+                  [disabled]="practiceOn() && practiceSubmode() === 'caged'"
+                  [attr.aria-selected]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
+                  [class.active]="practiceCagedShape() ? practiceCagedShape() === shape : selectedCagedShapes().has(shape)"
+                  (click)="toggleCagedShape(shape)"
+                >
+                  {{ shape }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        @if (mode() === 'key') {
+          <div class="view-toggle" role="tablist">
+            <button type="button" role="tab" [attr.aria-selected]="!practiceOn()" [class.active]="!practiceOn()" (click)="setPracticeOn(false)">
+              {{ text().practiceManual }}
             </button>
-          }
-        </div>
+            <button type="button" role="tab" [attr.aria-selected]="practiceOn()" [class.active]="practiceOn()" (click)="setPracticeOn(true)">
+              {{ text().practiceToggle }}
+            </button>
+          </div>
+        }
       </div>
     }
 
     @if (mode() === 'key') {
-      <div class="view-toggle" role="tablist">
-        <button type="button" role="tab" [attr.aria-selected]="!practiceOn()" [class.active]="!practiceOn()" (click)="setPracticeOn(false)">
-          {{ text().practiceManual }}
-        </button>
-        <button type="button" role="tab" [attr.aria-selected]="practiceOn()" [class.active]="practiceOn()" (click)="setPracticeOn(true)">
-          {{ text().practiceToggle }}
-        </button>
-      </div>
-
       @if (practiceOn()) {
         <div class="practice-panel">
           <div class="view-toggle" role="tablist">
@@ -258,22 +263,24 @@
           </div>
 
           @if (practiceSubmode() === 'scale') {
-            <div class="view-toggle" role="tablist">
-              <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'up'" [class.active]="practiceDirection() === 'up'" (click)="setPracticeDirection('up')">
-                {{ text().practiceUp }}
-              </button>
-              <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'down'" [class.active]="practiceDirection() === 'down'" (click)="setPracticeDirection('down')">
-                {{ text().practiceDown }}
-              </button>
-              <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'updown'" [class.active]="practiceDirection() === 'updown'" (click)="setPracticeDirection('updown')">
-                {{ text().practiceUpDown }}
-              </button>
-            </div>
-            <div class="practice-stepper">
-              <span>{{ text().practiceBeatsPerNote }}</span>
-              <button type="button" (click)="adjustPracticeNoteBeats(-1)" aria-label="-">&minus;</button>
-              <output>{{ practiceNoteBeats() }}</output>
-              <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
+            <div class="control-row">
+              <div class="view-toggle" role="tablist">
+                <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'up'" [class.active]="practiceDirection() === 'up'" (click)="setPracticeDirection('up')">
+                  {{ text().practiceUp }}
+                </button>
+                <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'down'" [class.active]="practiceDirection() === 'down'" (click)="setPracticeDirection('down')">
+                  {{ text().practiceDown }}
+                </button>
+                <button type="button" role="tab" [attr.aria-selected]="practiceDirection() === 'updown'" [class.active]="practiceDirection() === 'updown'" (click)="setPracticeDirection('updown')">
+                  {{ text().practiceUpDown }}
+                </button>
+              </div>
+              <div class="practice-stepper">
+                <span>{{ text().practiceBeatsPerNote }}</span>
+                <button type="button" (click)="adjustPracticeNoteBeats(-1)" aria-label="-">&minus;</button>
+                <output>{{ practiceNoteBeats() }}</output>
+                <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
+              </div>
             </div>
           } @else {
             <div class="practice-stepper">
@@ -284,14 +291,16 @@
             </div>
           }
 
-          <label class="scale-toggle">
-            <input type="checkbox" [checked]="practiceCountIn()" (change)="togglePracticeCountIn($event)" />
-            {{ text().practiceCountIn }}
-          </label>
-          <label class="scale-toggle">
-            <input type="checkbox" [checked]="practiceLoop()" (change)="togglePracticeLoop($event)" />
-            {{ text().practiceLoop }}
-          </label>
+          <div class="mark-row">
+            <label class="scale-toggle">
+              <input type="checkbox" [checked]="practiceCountIn()" (change)="togglePracticeCountIn($event)" />
+              {{ text().practiceCountIn }}
+            </label>
+            <label class="scale-toggle">
+              <input type="checkbox" [checked]="practiceLoop()" (change)="togglePracticeLoop($event)" />
+              {{ text().practiceLoop }}
+            </label>
+          </div>
 
           @if (!transportPlaying()) {
             <p class="practice-status">{{ text().practiceNeedsTransport }}</p>
