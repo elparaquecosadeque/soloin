@@ -8,7 +8,8 @@
   --_chords-on-primary: var(--chords-on-primary, #ffffff);
 
   display: block;
-  max-width: 520px;
+  width: 100%;
+  max-width: 560px;
 }
 
 .riff-card {
@@ -139,6 +140,30 @@ text {
 
 .playhead {
   fill: color-mix(in srgb, var(--_chords-primary) 18%, transparent);
+}
+
+.tech-line {
+  fill: none;
+  stroke: var(--_chords-text);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tech-label {
+  font-size: 9px;
+  font-style: italic;
+  fill: var(--_chords-text);
+}
+
+.stem {
+  stroke: var(--_chords-muted);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.stem-dot {
+  fill: var(--_chords-muted);
 }
 
 .tab-mark {

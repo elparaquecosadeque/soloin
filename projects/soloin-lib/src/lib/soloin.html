@@ -335,10 +335,17 @@
             <path d="M21 13v1a4 4 0 0 1-4 4H3" />
           </svg>
         </button>
-      </div>
-
-      @if (practiceSubmode() === 'scale') {
-        <div class="control-row">
+        @if (practiceSubmode() === 'caged') {
+          <div class="practice-stepper">
+            <span>{{ text().practiceBeatsPerBox }}</span>
+            <button type="button" (click)="adjustPracticeBoxBeats(-1)" aria-label="-">
+              &minus;
+            </button>
+            <output>{{ practiceBoxBeats() }}</output>
+            <button type="button" (click)="adjustPracticeBoxBeats(1)" aria-label="+">+</button>
+          </div>
+        }
+        @if (practiceSubmode() === 'scale') {
           <div class="view-toggle" role="tablist">
             <button
               type="button"
@@ -393,37 +400,36 @@
             <output>{{ practiceNoteBeats() }}</output>
             <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
           </div>
-        </div>
-      } @else if (practiceSubmode() === 'caged') {
-        <div class="practice-stepper">
-          <span>{{ text().practiceBeatsPerBox }}</span>
-          <button type="button" (click)="adjustPracticeBoxBeats(-1)" aria-label="-">&minus;</button>
-          <output>{{ practiceBoxBeats() }}</output>
-          <button type="button" (click)="adjustPracticeBoxBeats(1)" aria-label="+">+</button>
-        </div>
-      } @else if (activeRiff(); as riff) {
-        <div class="practice-stepper">
-          <button type="button" (click)="stepRiff(-1)" [attr.aria-label]="text().previous">
-            ‹
-          </button>
-          <output
-            >{{ riff.name[language()] }} —
-            {{ text().riffOf(riffIndex() + 1, availableRiffs().length) }}</output
-          >
-          <button type="button" (click)="stepRiff(1)" [attr.aria-label]="text().next">›</button>
-        </div>
-        <soloin-riff-tab
-          [riff]="riff"
-          [boxStart]="practiceRiffBoxStart()"
-          [title]="riffTitle()"
-          [strings]="tuning().strings"
-          [scaleNotes]="scaleNotes()"
-          [scaleLabels]="scaleLabels()"
-          [scaleRoot]="activeKey()?.root ?? null"
-          [progress]="practiceRiffProgress()"
-        />
-      } @else {
-        <p class="practice-status">{{ text().riffUnavailable }}</p>
+        }
+        @if (practiceSubmode() === 'riff' && activeRiff(); as riff) {
+          <div class="practice-stepper">
+            <button type="button" (click)="stepRiff(-1)" [attr.aria-label]="text().previous">
+              ‹
+            </button>
+            <output
+              >{{ riff.name[language()] }} —
+              {{ text().riffOf(riffIndex() + 1, availableRiffs().length) }}</output
+            >
+            <button type="button" (click)="stepRiff(1)" [attr.aria-label]="text().next">›</button>
+          </div>
+        }
+      </div>
+
+      @if (practiceSubmode() === 'riff') {
+        @if (activeRiff(); as riff) {
+          <soloin-riff-tab
+            [riff]="riff"
+            [boxStart]="practiceRiffBoxStart()"
+            [title]="riffTitle()"
+            [strings]="tuning().strings"
+            [scaleNotes]="scaleNotes()"
+            [scaleLabels]="scaleLabels()"
+            [scaleRoot]="activeKey()?.root ?? null"
+            [progress]="practiceRiffProgress()"
+          />
+        } @else {
+          <p class="practice-status">{{ text().riffUnavailable }}</p>
+        }
       }
 
       @if (!transportPlaying()) {
@@ -595,6 +601,8 @@
         }
       }
     </div>
+  } @else if (view() === 'practice' && practiceSubmode() === 'riff' && activeRiff()) {
+    <!-- The riff card draws its own zoomed fret window; the full neck would only repeat it. -->
   } @else if (mode() !== 'progression' || chordLayers().length === 0) {
     <soloin-fretboard
       [scaleNotes]="keyEditing() ? [] : scaleNotes()"

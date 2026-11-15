@@ -289,7 +289,7 @@ const COPY: Record<Language, CopyText> = {
     practiceManual: 'Manual',
     practiceToggle: 'Practice',
     practiceScale: 'Scale',
-    practiceCaged: 'CAGED boxes',
+    practiceCaged: 'CAGED',
     practiceRiff: 'Riff',
     riffOf: (index, total) => `Riff ${index} of ${total}`,
     riffUnavailable: 'Riffs are only written for pentatonic and blues scales right now.',
@@ -387,7 +387,7 @@ const COPY: Record<Language, CopyText> = {
     practiceManual: 'Manual',
     practiceToggle: 'Práctica',
     practiceScale: 'Escala',
-    practiceCaged: 'Cajas CAGED',
+    practiceCaged: 'CAGED',
     practiceRiff: 'Riff',
     riffOf: (index, total) => `Riff ${index} de ${total}`,
     riffUnavailable: 'Por ahora los riffs solo existen para escalas pentatónicas y blues.',
@@ -495,7 +495,7 @@ export class SoloinComponent {
   // direction) or the CAGED boxes, one step at a time, timed to the host's
   // transport rather than a second BPM control.
   readonly practiceOn = signal(false);
-  readonly practiceSubmode = signal<PracticeSubmode>('scale');
+  readonly practiceSubmode = signal<PracticeSubmode>('riff');
   readonly practiceDirection = signal<PracticeDirection>('up');
   readonly practiceNoteBeats = signal(2);
   readonly practiceBoxBeats = signal(4);
@@ -1102,6 +1102,12 @@ export class SoloinComponent {
   }
 
   toggleCagedShape(shape: CagedShape): void {
+    // A riff lives in exactly one box, so in Practice the picker is single-select.
+    if (this.practiceOn()) {
+      this.selectedCagedShapes.set(new Set([shape]));
+      this.resetPracticeClock();
+      return;
+    }
     this.selectedCagedShapes.update((current) => {
       const next = new Set(current);
       if (next.delete(shape)) {

@@ -6,11 +6,12 @@ const STRING_COUNT = 6;
 
 // TAB strip geometry
 const LINE_GAP = 22;
-const BEAT_W = 72;
+const BEAT_W = 96; // a sixteenth (24px) still clears a two-digit fret number
 const PAD_L = 30;
 const PAD_T = 30;
 const PAD_R = 24;
 const PAD_B = 14;
+const RHYTHM_H = 30; // stems/flags row under the strings
 
 // Zoomed fret-window geometry
 const FRET_W = 64;
@@ -78,10 +79,12 @@ export class RiffTab {
 
   // --- TAB strip ---
   readonly tabWidth = computed(() => PAD_L + PAD_R + Math.max(1, this.riff().totalBeats) * BEAT_W);
-  readonly tabHeight = PAD_T + PAD_B + (STRING_COUNT - 1) * LINE_GAP;
+  readonly tabHeight = PAD_T + PAD_B + RHYTHM_H + (STRING_COUNT - 1) * LINE_GAP;
+  readonly stemTop = PAD_T + (STRING_COUNT - 1) * LINE_GAP + 12;
+  readonly stemBottom = this.stemTop + 18;
   readonly tabLineYs = Array.from({ length: STRING_COUNT }, (_, i) => PAD_T + i * LINE_GAP);
   readonly stringNames = ['e', 'B', 'G', 'D', 'A', 'E'];
-  readonly playheadW = BEAT_W / 2;
+  readonly playheadW = 30;
   // Snaps to the sounding note's column; only glides during rests.
   readonly playheadX = computed(() => {
     const i = this.activeIndex();
@@ -96,12 +99,28 @@ export class RiffTab {
   readonly tabMarks = computed(() => {
     const active = this.activeIndex();
     const start = this.boxStart();
-    return this.riff().notes.map((note, i) => ({
-      x: PAD_L + note.beat * BEAT_W,
-      y: PAD_T + note.stringIndex * LINE_GAP,
-      fret: start + note.fretOffset,
-      active: i === active,
-    }));
+    const notes = this.riff().notes;
+    return notes.map((note, i) => {
+      const x = PAD_L + note.beat * BEAT_W;
+      const prev = note.technique ? notes[i - 1] : undefined;
+      // Rhythm: a dotted value is 1.5x a plain one; flags count down from the quarter.
+      const dotted = [0.75, 1.5, 3].includes(note.duration);
+      const base = dotted ? note.duration / 1.5 : note.duration;
+      return {
+        x,
+        y: PAD_T + note.stringIndex * LINE_GAP,
+        fret: start + note.fretOffset,
+        active: i === active,
+        technique: note.technique,
+        // Where the slide line / legato arc starts: the previous note's number.
+        fromX: prev ? PAD_L + prev.beat * BEAT_W : x,
+        rising: prev ? note.fretOffset > prev.fretOffset : false,
+        bendLabel: note.bend ? (note.bend >= 2 ? 'full' : '½') : null,
+        flags: base <= 0.25 ? 2 : base <= 0.5 ? 1 : 0,
+        dotted,
+        long: base >= 2,
+      };
+    });
   });
 
   // --- Zoomed fret window ---
@@ -186,8 +205,11 @@ export class RiffTab {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'triangle';
-    osc.frequency.value = 440 * 2 ** ((midi - 69) / 12);
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    const freq = 440 * 2 ** ((midi - 69) / 12);
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    if (note.bend) osc.frequency.linearRampToValueAtTime(freq * 2 ** (note.bend / 12), ctx.currentTime + 0.18);
+    // Slides, hammer-ons and pull-offs aren't re-picked, so they sound softer.
+    gain.gain.setValueAtTime(note.technique ? 0.15 : 0.25, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
     osc.connect(gain).connect(ctx.destination);
     osc.start();

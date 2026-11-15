@@ -49,10 +49,45 @@
       <text class="string-name" x="6" [attr.y]="y">{{ stringNames[i] }}</text>
     }
     @for (mark of tabMarks(); track $index) {
+      @if (mark.technique === 'slide') {
+        <line
+          class="tech-line"
+          [attr.x1]="mark.fromX + 11"
+          [attr.y1]="mark.y + (mark.rising ? 5 : -5)"
+          [attr.x2]="mark.x - 11"
+          [attr.y2]="mark.y + (mark.rising ? -5 : 5)"
+        />
+      } @else if (mark.technique) {
+        <path
+          class="tech-line"
+          [attr.d]="'M' + (mark.fromX + 4) + ' ' + (mark.y - 11) + ' Q' + (mark.fromX + mark.x) / 2 + ' ' + (mark.y - 18) + ' ' + (mark.x - 4) + ' ' + (mark.y - 11)"
+        />
+        <text class="tech-label" [attr.x]="(mark.fromX + mark.x) / 2" [attr.y]="mark.y - 20">
+          {{ mark.technique === 'hammer' ? 'h' : 'p' }}
+        </text>
+      }
+      @if (mark.bendLabel) {
+        <path
+          class="tech-line"
+          [attr.d]="'M' + (mark.x + 11) + ' ' + mark.y + ' Q' + (mark.x + 21) + ' ' + mark.y + ' ' + (mark.x + 21) + ' ' + (mark.y - 14) + ' M' + (mark.x + 17.5) + ' ' + (mark.y - 10) + ' L' + (mark.x + 21) + ' ' + (mark.y - 15) + ' L' + (mark.x + 24.5) + ' ' + (mark.y - 10)"
+        />
+        <text class="tech-label" [attr.x]="mark.x + 21" [attr.y]="mark.y - 21">{{ mark.bendLabel }}</text>
+      }
       <g class="tab-mark" [class.active]="mark.active">
         <rect [attr.x]="mark.x - 10" [attr.y]="mark.y - 10" width="20" height="20" rx="4" />
         <text [attr.x]="mark.x" [attr.y]="mark.y">{{ mark.fret }}</text>
       </g>
+      <!-- Rhythm: stem per note, one flag per halving below the quarter, dot for dotted values. -->
+      <line class="stem" [attr.x1]="mark.x" [attr.y1]="mark.long ? stemTop + 9 : stemTop" [attr.x2]="mark.x" [attr.y2]="stemBottom" />
+      @if (mark.flags >= 1) {
+        <line class="stem" [attr.x1]="mark.x" [attr.y1]="stemBottom" [attr.x2]="mark.x + 8" [attr.y2]="stemBottom" />
+      }
+      @if (mark.flags >= 2) {
+        <line class="stem" [attr.x1]="mark.x" [attr.y1]="stemBottom - 5" [attr.x2]="mark.x + 8" [attr.y2]="stemBottom - 5" />
+      }
+      @if (mark.dotted) {
+        <circle class="stem-dot" [attr.cx]="mark.x + 5" [attr.cy]="stemTop + 3" r="1.6" />
+      }
     }
   </svg>
 
