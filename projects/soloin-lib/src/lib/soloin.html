@@ -769,7 +769,7 @@
       [scaleLevels]="scaleLevels()"
       [caption]="mode() === 'key' && (plainBoards() || !controlsOpen()) ? riffTitle() : ''"
       [chordLayers]="keyEditing() ? [] : keyFretboardLayers()"
-      [cagedBoxes]="keyEditing() ? [] : cagedBoxes()"
+      [cagedBoxes]="cagedBoxes()"
       [tuning]="tuning()"
       [selectable]="keyEditing()"
       [selectedPositions]="keyMarks()"
