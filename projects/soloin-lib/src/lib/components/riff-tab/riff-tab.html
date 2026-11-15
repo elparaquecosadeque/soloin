@@ -1,8 +1,13 @@
-<div class="riff-card">
+<div class="riff-card" [class.editing]="editing()">
   <header class="riff-head">
     <h3>{{ title() }}</h3>
     <div class="riff-controls">
-      <button type="button" class="play" (click)="toggle()" [attr.aria-label]="playing() ? 'Pause' : 'Play'">
+      <button
+        type="button"
+        class="play"
+        (click)="toggle()"
+        [attr.aria-label]="playing() ? copy().pause : copy().play"
+      >
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor">
           @if (playing()) {
             <rect x="5" y="4" width="5" height="16" rx="1" />
@@ -12,86 +17,437 @@
           }
         </svg>
       </button>
-      <button type="button" (click)="adjustBpm(-10)" aria-label="Slower">−</button>
+      <button type="button" (click)="adjustBpm(-10)" [attr.aria-label]="copy().slower">−</button>
       <output>{{ bpm() }} bpm</output>
-      <button type="button" (click)="adjustBpm(10)" aria-label="Faster">+</button>
+      <button type="button" (click)="adjustBpm(10)" [attr.aria-label]="copy().faster">+</button>
     </div>
   </header>
 
-  <svg class="riff-board" [attr.viewBox]="'0 0 ' + boardWidth() + ' ' + boardHeight" role="img" [attr.aria-label]="title()">
-    <line class="fret-line nut" [attr.x1]="34" [attr.y1]="16" [attr.x2]="34" [attr.y2]="boardBottom" />
-    @for (f of frets(); track f.fret) {
-      <line class="fret-line" [attr.x1]="f.lineX" [attr.y1]="16" [attr.x2]="f.lineX" [attr.y2]="boardBottom" />
-      <text class="fret-label" [attr.x]="f.labelX" [attr.y]="boardBottom + 24">{{ f.fret }}</text>
-    }
-    @for (y of boardStringYs; track y; let i = $index) {
-      <line class="string-line" [attr.x1]="34" [attr.y1]="y" [attr.x2]="boardRight()" [attr.y2]="y" />
-      <text class="string-name" x="14" [attr.y]="y">{{ stringNames[i] }}</text>
-    }
-    @for (dot of dots(); track $index) {
-      <g class="dot" [class.root]="dot.root" [class.active]="dot.active">
-        <circle class="halo" [attr.cx]="dot.x" [attr.cy]="dot.y" r="15" />
-        <circle class="body" [attr.cx]="dot.x" [attr.cy]="dot.y" r="11" />
-        <text [attr.x]="dot.x" [attr.y]="dot.y">{{ dot.label }}</text>
-      </g>
-    }
-  </svg>
+  @if (editing()) {
+    <div class="edit-row">
+      <input
+        id="soloin-riff-name"
+        class="name-input"
+        type="text"
+        maxlength="60"
+        autocomplete="off"
+        [value]="name()"
+        [placeholder]="copy().namePlaceholder"
+        [attr.aria-label]="copy().name"
+        (input)="setName($event)"
+      />
+      <div class="stepper">
+        <span>{{ copy().bars }}</span>
+        <button
+          type="button"
+          (click)="setBars(-1)"
+          [disabled]="bars() <= 1"
+          [attr.aria-label]="copy().fewerBars"
+        >
+          −
+        </button>
+        <output>{{ bars() }}</output>
+        <button
+          type="button"
+          (click)="setBars(1)"
+          [disabled]="bars() >= 4"
+          [attr.aria-label]="copy().moreBars"
+        >
+          +
+        </button>
+      </div>
+      <label class="span-pick">
+        <span>{{ copy().through }}</span>
+        <select id="soloin-riff-span" (change)="setSpan($event)">
+          @for (n of spans; track n) {
+            <option [value]="n" [selected]="n === span()">{{ spanLabel(n) }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  }
 
-  <svg class="riff-tab" [attr.viewBox]="'0 0 ' + tabWidth() + ' ' + tabHeight" role="img" [attr.aria-label]="riff().name.en">
-    @if (pos() !== null) {
-      <rect class="playhead" [attr.x]="playheadX()" y="18" [attr.width]="playheadW" [attr.height]="tabHeight - 22" rx="4" />
-    }
-    @for (tick of beatTicks(); track tick.n) {
-      <text class="beat-number" [attr.x]="tick.x" y="10">{{ tick.n }}</text>
-    }
-    @for (y of tabLineYs; track y; let i = $index) {
-      <line class="string-line" [attr.x1]="18" [attr.y1]="y" [attr.x2]="tabWidth()" [attr.y2]="y" />
-      <text class="string-name" x="6" [attr.y]="y">{{ stringNames[i] }}</text>
-    }
-    @for (mark of tabMarks(); track $index) {
-      @if (mark.technique === 'slide') {
+  <div class="scroll-x">
+    <svg
+      class="riff-board"
+      [attr.viewBox]="'0 0 ' + boardWidth() + ' ' + boardHeight"
+      [style.min-width.px]="boardMinWidth()"
+      role="img"
+      [attr.aria-label]="title()"
+    >
+      @for (band of boxBands(); track band.shape) {
+        <rect
+          class="box-band"
+          [class.alt]="band.alt"
+          [attr.x]="band.x"
+          y="6"
+          [attr.width]="band.width"
+          [attr.height]="boardBottom + 4"
+          rx="6"
+        />
+      }
+      <line
+        class="fret-line nut"
+        [attr.x1]="34"
+        [attr.y1]="16"
+        [attr.x2]="34"
+        [attr.y2]="boardBottom"
+      />
+      @for (f of frets(); track f.fret) {
         <line
-          class="tech-line"
-          [attr.x1]="mark.fromX + 11"
-          [attr.y1]="mark.y + (mark.rising ? 5 : -5)"
-          [attr.x2]="mark.x - 11"
-          [attr.y2]="mark.y + (mark.rising ? -5 : 5)"
+          class="fret-line"
+          [attr.x1]="f.lineX"
+          [attr.y1]="16"
+          [attr.x2]="f.lineX"
+          [attr.y2]="boardBottom"
         />
-      } @else if (mark.technique) {
-        <path
-          class="tech-line"
-          [attr.d]="'M' + (mark.fromX + 4) + ' ' + (mark.y - 11) + ' Q' + (mark.fromX + mark.x) / 2 + ' ' + (mark.y - 18) + ' ' + (mark.x - 4) + ' ' + (mark.y - 11)"
-        />
-        <text class="tech-label" [attr.x]="(mark.fromX + mark.x) / 2" [attr.y]="mark.y - 20">
-          {{ mark.technique === 'hammer' ? 'h' : 'p' }}
+        <text class="fret-label" [attr.x]="f.labelX" [attr.y]="boardBottom + 24">
+          {{ f.fret }}
         </text>
       }
-      @if (mark.bendLabel) {
-        <path
-          class="tech-line"
-          [attr.d]="'M' + (mark.x + 11) + ' ' + mark.y + ' Q' + (mark.x + 21) + ' ' + mark.y + ' ' + (mark.x + 21) + ' ' + (mark.y - 14) + ' M' + (mark.x + 17.5) + ' ' + (mark.y - 10) + ' L' + (mark.x + 21) + ' ' + (mark.y - 15) + ' L' + (mark.x + 24.5) + ' ' + (mark.y - 10)"
+      @for (y of boardStringYs; track y; let i = $index) {
+        <line
+          class="string-line"
+          [attr.x1]="34"
+          [attr.y1]="y"
+          [attr.x2]="boardRight()"
+          [attr.y2]="y"
         />
-        <text class="tech-label" [attr.x]="mark.x + 21" [attr.y]="mark.y - 21">{{ mark.bendLabel }}</text>
+        <text class="string-name" x="14" [attr.y]="y">{{ stringNames[i] }}</text>
       }
-      <g class="tab-mark" [class.active]="mark.active">
-        <rect [attr.x]="mark.x - 10" [attr.y]="mark.y - 10" width="20" height="20" rx="4" />
-        <text [attr.x]="mark.x" [attr.y]="mark.y">{{ mark.fret }}</text>
-      </g>
-      <!-- Rhythm: stem per note, one flag per halving below the quarter, dot for dotted values. -->
-      <line class="stem" [attr.x1]="mark.x" [attr.y1]="mark.long ? stemTop + 9 : stemTop" [attr.x2]="mark.x" [attr.y2]="stemBottom" />
-      @if (mark.flags >= 1) {
-        <line class="stem" [attr.x1]="mark.x" [attr.y1]="stemBottom" [attr.x2]="mark.x + 8" [attr.y2]="stemBottom" />
+      @for (band of boxBands(); track band.shape) {
+        <text class="box-name" [attr.x]="band.labelX" [attr.y]="boardBottom + 24" dx="-22">
+          {{ band.shape }}
+        </text>
       }
-      @if (mark.flags >= 2) {
-        <line class="stem" [attr.x1]="mark.x" [attr.y1]="stemBottom - 5" [attr.x2]="mark.x + 8" [attr.y2]="stemBottom - 5" />
+      @for (cell of cells(); track cell.s + ':' + cell.f) {
+        @if (cell.label !== null) {
+          <g class="ghost">
+            <circle [attr.cx]="cell.x" [attr.cy]="cell.y" r="10" />
+            <text [attr.x]="cell.x" [attr.y]="cell.y">{{ cell.label }}</text>
+          </g>
+        }
       }
-      @if (mark.dotted) {
-        <circle class="stem-dot" [attr.cx]="mark.x + 5" [attr.cy]="stemTop + 3" r="1.6" />
+      @for (dot of dots(); track $index) {
+        <g class="dot" [class.root]="dot.root && dot.level === null" [class.active]="dot.active" [attr.data-level]="dot.level">
+          <circle class="halo" [attr.cx]="dot.x" [attr.cy]="dot.y" r="15" />
+          <circle class="body" [attr.cx]="dot.x" [attr.cy]="dot.y" r="11" />
+          <text [attr.x]="dot.x" [attr.y]="dot.y">{{ dot.label }}</text>
+        </g>
       }
-    }
-  </svg>
-
-  <div class="riff-progress" role="progressbar" [attr.aria-valuenow]="(fraction() * 100).toFixed(0)">
-    <div class="riff-progress-fill" [style.transform]="'scaleX(' + fraction() + ')'"></div>
+      <!-- Pointer-only tap targets; the keyboard path is the TAB strip below. -->
+      @for (cell of cells(); track cell.s + ':' + cell.f) {
+        <rect
+          class="cell"
+          [attr.x]="cell.x - fretW / 2"
+          [attr.y]="cell.y - stringGap / 2"
+          [attr.width]="fretW"
+          [attr.height]="stringGap"
+          (click)="enter(cell.s, cell.f)"
+        />
+      }
+    </svg>
   </div>
+
+  @if (editing()) {
+    <div class="edit-row tools">
+      <div class="seg" role="group">
+        @for (d of durations; track d) {
+          <button
+            type="button"
+            [attr.aria-pressed]="duration() === d"
+            [attr.aria-label]="copy().durations[d]"
+            [attr.title]="copy().durations[d]"
+            (click)="setDuration(d)"
+          >
+            <svg viewBox="0 0 16 20" width="16" height="20" aria-hidden="true">
+              <ellipse
+                class="head"
+                [class.open]="d === 2"
+                cx="6"
+                cy="15.5"
+                rx="4"
+                ry="3"
+                transform="rotate(-20 6 15.5)"
+              />
+              <path class="flag" d="M10 15V2.5" />
+              @if (d <= 0.5) {
+                <path class="flag" d="M10 2.5c1 3 4 3 4 7" />
+              }
+              @if (d <= 0.25) {
+                <path class="flag" d="M10 7c1 3 4 3 4 7" />
+              }
+            </svg>
+          </button>
+        }
+        <button
+          type="button"
+          [attr.aria-pressed]="dotted()"
+          [attr.aria-label]="copy().dotted"
+          [attr.title]="copy().dotted"
+          (click)="toggleDotted()"
+        >
+          <svg viewBox="0 0 16 20" width="16" height="20" aria-hidden="true">
+            <ellipse class="head" cx="5" cy="15.5" rx="4" ry="3" transform="rotate(-20 5 15.5)" />
+            <path class="flag" d="M9 15V2.5" />
+            <circle class="head" cx="13" cy="15.5" r="1.6" />
+          </svg>
+        </button>
+      </div>
+      <button type="button" class="tool text" (click)="addRest()">{{ copy().rest }}</button>
+      <div class="tool-group">
+        <button
+          type="button"
+          class="tool"
+          (click)="undo()"
+          [disabled]="!canUndo()"
+          [attr.aria-label]="copy().undo"
+          [attr.title]="copy().undo"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M9 14 4 9l5-5" />
+            <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="tool"
+          (click)="redo()"
+          [disabled]="!canRedo()"
+          [attr.aria-label]="copy().redo"
+          [attr.title]="copy().redo"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="m15 14 5-5-5-5" />
+            <path d="M20 9H10a6 6 0 0 0 0 12h3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  }
+
+  <div class="scroll-x" #tabScroll>
+    <svg
+      class="riff-tab"
+      [attr.viewBox]="'0 0 ' + tabWidth() + ' ' + tabHeight"
+      [style.min-width.px]="tabMinWidth()"
+      [attr.role]="editing() ? 'application' : 'img'"
+      [attr.tabindex]="editing() ? 0 : null"
+      [attr.aria-label]="editing() ? copy().hint : shown().name[language()]"
+      (click)="onTabClick($event)"
+      (keydown)="onTabKey($event)"
+    >
+      @if (pos() !== null) {
+        <rect
+          class="playhead"
+          [attr.x]="playheadX()"
+          y="18"
+          [attr.width]="playheadW"
+          [attr.height]="tabHeight - 22"
+          rx="4"
+        />
+      } @else if (editing()) {
+        <rect
+          class="cursor-col"
+          [attr.x]="cursorX() - 15"
+          y="18"
+          width="30"
+          [attr.height]="tabHeight - 22"
+          rx="4"
+        />
+        <circle class="cursor-string" [attr.cx]="cursorX()" [attr.cy]="cursorY()" r="12" />
+      }
+      @for (tick of beatTicks(); track $index) {
+        <text class="beat-number" [attr.x]="tick.x" y="10">{{ tick.n }}</text>
+      }
+      @for (y of tabLineYs; track y; let i = $index) {
+        <line
+          class="string-line"
+          [attr.x1]="18"
+          [attr.y1]="y"
+          [attr.x2]="tabWidth()"
+          [attr.y2]="y"
+        />
+        <text class="string-name" x="6" [attr.y]="y">{{ stringNames[i] }}</text>
+      }
+      @for (x of barLines(); track x) {
+        <line
+          class="bar-line"
+          [attr.x1]="x"
+          [attr.y1]="tabLineYs[0]"
+          [attr.x2]="x"
+          [attr.y2]="tabLineYs[5]"
+        />
+      }
+      @for (rest of restMarks(); track $index) {
+        <rect
+          class="rest-mark"
+          [class.selected]="rest.selected"
+          [attr.x]="rest.x - 6"
+          [attr.y]="stemTop + 6"
+          width="12"
+          height="5"
+          rx="1"
+        />
+      }
+      @for (mark of tabMarks(); track $index) {
+        @if (mark.technique === 'slide') {
+          <line
+            class="tech-line"
+            [attr.x1]="mark.fromX + 11"
+            [attr.y1]="mark.y + (mark.rising ? 5 : -5)"
+            [attr.x2]="mark.x - 11"
+            [attr.y2]="mark.y + (mark.rising ? -5 : 5)"
+          />
+        } @else if (mark.technique) {
+          <path
+            class="tech-line"
+            [attr.d]="
+              'M' +
+              (mark.fromX + 4) +
+              ' ' +
+              (mark.y - 11) +
+              ' Q' +
+              (mark.fromX + mark.x) / 2 +
+              ' ' +
+              (mark.y - 18) +
+              ' ' +
+              (mark.x - 4) +
+              ' ' +
+              (mark.y - 11)
+            "
+          />
+          <text class="tech-label" [attr.x]="(mark.fromX + mark.x) / 2" [attr.y]="mark.y - 20">
+            {{ mark.technique === 'hammer' ? 'h' : 'p' }}
+          </text>
+        }
+        @if (mark.bendLabel) {
+          <path
+            class="tech-line"
+            [attr.d]="
+              'M' +
+              (mark.x + 11) +
+              ' ' +
+              mark.y +
+              ' Q' +
+              (mark.x + 21) +
+              ' ' +
+              mark.y +
+              ' ' +
+              (mark.x + 21) +
+              ' ' +
+              (mark.y - 14) +
+              ' M' +
+              (mark.x + 17.5) +
+              ' ' +
+              (mark.y - 10) +
+              ' L' +
+              (mark.x + 21) +
+              ' ' +
+              (mark.y - 15) +
+              ' L' +
+              (mark.x + 24.5) +
+              ' ' +
+              (mark.y - 10)
+            "
+          />
+          <text class="tech-label" [attr.x]="mark.x + 21" [attr.y]="mark.y - 21">
+            {{ mark.bendLabel }}
+          </text>
+        }
+        @if (mark.vibrato) {
+          <path
+            class="tech-line"
+            [attr.d]="mark.vibrato"
+            [attr.transform]="'translate(0 ' + mark.y + ')'"
+          />
+        }
+        <g class="tab-mark" [class.active]="mark.active" [class.selected]="mark.selected">
+          <rect [attr.x]="mark.x - 10" [attr.y]="mark.y - 10" width="20" height="20" rx="4" />
+          <text [attr.x]="mark.x" [attr.y]="mark.y">{{ mark.fret }}</text>
+        </g>
+        <!-- Rhythm: stem per note, one flag per halving below the quarter, dot for dotted values. -->
+        <line
+          class="stem"
+          [attr.x1]="mark.x"
+          [attr.y1]="mark.long ? stemTop + 9 : stemTop"
+          [attr.x2]="mark.x"
+          [attr.y2]="stemBottom"
+        />
+        @if (mark.flags >= 1) {
+          <line
+            class="stem"
+            [attr.x1]="mark.x"
+            [attr.y1]="stemBottom"
+            [attr.x2]="mark.x + 8"
+            [attr.y2]="stemBottom"
+          />
+        }
+        @if (mark.flags >= 2) {
+          <line
+            class="stem"
+            [attr.x1]="mark.x"
+            [attr.y1]="stemBottom - 5"
+            [attr.x2]="mark.x + 8"
+            [attr.y2]="stemBottom - 5"
+          />
+        }
+        @if (mark.dotted) {
+          <circle class="stem-dot" [attr.cx]="mark.x + 5" [attr.cy]="stemTop + 3" r="1.6" />
+        }
+        @if (mark.palmMute) {
+          <text class="tech-label" [attr.x]="mark.x" [attr.y]="stemBottom + 10">PM</text>
+        }
+      }
+    </svg>
+  </div>
+
+  @if (editing()) {
+    @if (selectedNote()) {
+      <div class="edit-row tools">
+        <div class="seg" role="group">
+          @for (t of techniques; track t.id) {
+            <button
+              type="button"
+              class="mark"
+              [attr.aria-pressed]="techniqueOn(t.id)"
+              [attr.aria-disabled]="techniqueBlocked(t.id)"
+              [attr.aria-label]="copy().techniques[t.id]"
+              [attr.title]="copy().techniques[t.id]"
+              (click)="applyTechnique(t.id)"
+            >
+              {{ t.mark }}
+            </button>
+          }
+        </div>
+        <button
+          type="button"
+          class="tool"
+          (click)="remove()"
+          [attr.aria-label]="copy().remove"
+          [attr.title]="copy().remove"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M4 7h16" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M6 7l1 13h10l1-13" />
+            <path d="M9 7V4h6v3" />
+          </svg>
+        </button>
+      </div>
+    }
+    <p class="notice" role="status">{{ notice() || copy().hint }}</p>
+    <div class="edit-row actions">
+      <button type="button" class="primary" (click)="save()">{{ copy().save }}</button>
+      <button type="button" class="plain" (click)="cancel()">{{ copy().cancel }}</button>
+    </div>
+  } @else {
+    <div
+      class="riff-progress"
+      role="progressbar"
+      [attr.aria-valuenow]="(fraction() * 100).toFixed(0)"
+    >
+      <div class="riff-progress-fill" [style.transform]="'scaleX(' + fraction() + ')'"></div>
+    </div>
+  }
 </div>

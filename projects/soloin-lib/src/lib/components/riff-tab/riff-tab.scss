@@ -6,10 +6,13 @@
   --_chords-primary: var(--chords-primary, #2563eb);
   --_chords-root: var(--chords-danger, #dc2626);
   --_chords-on-primary: var(--chords-on-primary, #ffffff);
+  --_chords-tension-0: var(--chords-tension-0, #1e40af);
+  --_chords-tension-1: var(--chords-tension-1, #0e7490);
+  --_chords-tension-2: var(--chords-tension-2, #64748b);
+  --_chords-tension-3: var(--chords-tension-3, #dc2626);
 
   display: block;
   width: 100%;
-  max-width: 560px;
 }
 
 .riff-card {
@@ -78,11 +81,17 @@
   }
 }
 
-.riff-card > svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--_chords-border) transparent;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
 }
 
 text {
@@ -126,6 +135,19 @@ text {
   &.root text {
     fill: #fff;
   }
+  // Colour-by-tension (see tension.ts); the tonic is told apart by its ring, not its hue.
+  @for $level from 0 through 3 {
+    &[data-level='#{$level}'] .body {
+      fill: var(--_chords-tension-#{$level});
+    }
+  }
+  &[data-level] text {
+    fill: #fff;
+  }
+  &[data-level='0']:not(.active) .halo {
+    stroke: var(--_chords-tension-0);
+    stroke-width: 2;
+  }
   &.active .halo {
     fill: color-mix(in srgb, var(--_chords-primary) 35%, transparent);
     stroke: var(--_chords-primary);
@@ -136,6 +158,78 @@ text {
 .riff-tab {
   border-top: 1px solid var(--_chords-border);
   padding-top: 8px;
+
+  &:focus-visible {
+    outline: 2px solid var(--_chords-primary);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+.editing .riff-tab {
+  cursor: text;
+}
+
+// Multi-box riffs: one tinted band per CAGED box, so the seam is visible.
+.box-band {
+  fill: color-mix(in srgb, var(--_chords-primary) 9%, transparent);
+
+  &.alt {
+    fill: color-mix(in srgb, var(--_chords-root) 9%, transparent);
+  }
+}
+
+.box-name {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--_chords-text);
+}
+
+// Editing: the scale's notes as a faint guide, and a tap target per position.
+.ghost {
+  circle {
+    fill: none;
+    stroke: var(--_chords-muted);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+  }
+  text {
+    font-size: 9px;
+    fill: var(--_chords-muted);
+  }
+}
+
+.cell {
+  fill: transparent;
+  cursor: pointer;
+
+  &:hover {
+    fill: color-mix(in srgb, var(--_chords-primary) 14%, transparent);
+  }
+}
+
+.cursor-col {
+  fill: color-mix(in srgb, var(--_chords-primary) 10%, transparent);
+}
+
+.cursor-string {
+  fill: none;
+  stroke: var(--_chords-primary);
+  stroke-width: 1.6;
+  stroke-dasharray: 3 3;
+}
+
+.bar-line {
+  stroke: var(--_chords-muted);
+  stroke-width: 1.4;
+}
+
+.rest-mark {
+  fill: var(--_chords-muted);
+
+  &.selected {
+    fill: var(--_chords-primary);
+  }
 }
 
 .playhead {
@@ -175,12 +269,199 @@ text {
     font-weight: 700;
     fill: var(--_chords-text);
   }
+  &.selected rect {
+    stroke: var(--_chords-primary);
+    stroke-width: 2;
+  }
   &.active rect {
     fill: var(--_chords-primary);
   }
   &.active text {
     fill: var(--_chords-on-primary);
   }
+}
+
+// --- Editor chrome ---
+.edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--_chords-muted);
+}
+
+.name-input {
+  flex: 1 1 160px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 8px;
+  background: var(--_chords-surface);
+  color: var(--_chords-text);
+  font: inherit;
+  caret-color: var(--_chords-primary);
+
+  &::placeholder {
+    color: var(--_chords-muted);
+  }
+}
+
+.stepper,
+.span-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepper output {
+  min-width: 1ch;
+  text-align: center;
+  color: var(--_chords-text);
+}
+
+.span-pick select {
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 8px;
+  background: var(--_chords-surface);
+  color: var(--_chords-text);
+  font: inherit;
+}
+
+.stepper button,
+.tool,
+.seg button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 8px;
+  background: var(--_chords-surface);
+  color: var(--_chords-text);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--_chords-primary);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+.stepper button {
+  min-width: 28px;
+  height: 28px;
+}
+
+.tool.text {
+  padding: 0 12px;
+}
+
+.tool-group {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+// Joined buttons: note values, and the techniques for the selected note.
+.seg {
+  display: inline-flex;
+
+  button {
+    border-radius: 0;
+    margin-left: -1px;
+
+    &:first-child {
+      margin-left: 0;
+      border-radius: 8px 0 0 8px;
+    }
+    &:last-child {
+      border-radius: 0 8px 8px 0;
+    }
+    &:hover {
+      position: relative;
+    }
+    &[aria-pressed='true'] {
+      position: relative;
+      border-color: var(--_chords-primary);
+      background: var(--_chords-primary);
+      color: var(--_chords-on-primary);
+    }
+    &[aria-disabled='true'] {
+      color: color-mix(in srgb, var(--_chords-muted) 55%, transparent);
+    }
+  }
+
+  .mark {
+    min-width: 30px;
+    padding: 0 4px;
+    font-style: italic;
+    font-weight: 700;
+  }
+
+  .head {
+    fill: currentColor;
+    stroke: none;
+
+    &.open {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+    }
+  }
+
+  .flag {
+    stroke-width: 1.6;
+  }
+}
+
+.notice {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--_chords-muted);
+}
+
+.actions button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--_chords-border);
+  border-radius: 8px;
+  background: var(--_chords-surface);
+  color: var(--_chords-text);
+  font: inherit;
+  cursor: pointer;
+
+  &.primary {
+    border-color: var(--_chords-primary);
+    background: var(--_chords-primary);
+    color: var(--_chords-on-primary);
+  }
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--_chords-primary);
+  outline-offset: 2px;
 }
 
 .riff-progress {

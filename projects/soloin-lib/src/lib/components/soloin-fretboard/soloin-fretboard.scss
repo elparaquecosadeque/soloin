@@ -16,12 +16,62 @@
   --_chords-chord-color-4: var(--chords-chord-color-4, var(--chords-danger, #a855f7));
   --_chords-chord-color-5: var(--chords-chord-color-5, #84cc16);
   --_chords-chord-color-6: var(--chords-chord-color-6, #a78bfa);
+  // Colour-by-tension: calm and cool at rest, warm and strong where a note pulls.
+  --_chords-tension-0: var(--chords-tension-0, #1e40af);
+  --_chords-tension-1: var(--chords-tension-1, #0e7490);
+  --_chords-tension-2: var(--chords-tension-2, #64748b);
+  --_chords-tension-3: var(--chords-tension-3, #dc2626);
 
   display: block;
 }
 
+// Trial look borrowed from the riff card: always a white panel with grey
+// hardware and ink dots, whatever the host theme. Scale notes go dark, the
+// tonic/first chord red; later chords keep distinct hues that read on white.
+:host(.plain) {
+  --_chords-nut: #6b7280;
+  --_chords-string: #9ca3af;
+  --_chords-fret: #9ca3af;
+  --_chords-marker: #e5e7eb;
+  --_chords-text: #1f2937;
+  --_chords-muted: #6b7280;
+  --_chords-on-primary: #ffffff;
+  --_chords-background: #ffffff;
+  --_chords-scale-note: #1f2937;
+  --_chords-chord-color-1: #dc2626;
+  --_chords-chord-color-2: #2563eb;
+  --_chords-chord-color-3: #b45309;
+  --_chords-chord-color-4: #7c3aed;
+  --_chords-chord-color-5: #15803d;
+  --_chords-chord-color-6: #be185d;
+
+  .fretboard-scroll {
+    padding: 10px 8px 4px;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: #ffffff;
+  }
+
+  // The scale's root in red, as on the riff card.
+  .scale-root {
+    fill: #dc2626;
+  }
+}
+
 .fretboard-scroll {
   overflow-x: auto;
+}
+
+// Stays put while the board scrolls sideways under it.
+.caption {
+  position: sticky;
+  left: 0;
+  width: max-content;
+  margin: 0 0 4px;
+  padding: 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--_chords-text);
 }
 
 .fretboard {

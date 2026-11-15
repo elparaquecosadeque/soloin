@@ -26,7 +26,9 @@ import { findTuning, TUNINGS, type Tuning, type TuningName } from './components/
 import { RiffTab } from './components/riff-tab/riff-tab';
 import { ToggleSwitch } from './components/toggle-switch/toggle-switch';
 import { IDENTIFY_MIN_NOTES, identifyScales, type IdentifyGroup, type IdentifyMatch } from './identify';
+import { decodeRiff, encodeRiff, loadUserRiffs, saveUserRiffs } from './riff-edit';
 import { riffsFor, type Riff } from './riffs';
+import { tensionLevels } from './tension';
 import { marksToNumbers, numbersToMarks, type SoloinSessionState } from './session-state';
 
 export type { SoloinSessionState } from './session-state';
@@ -160,6 +162,25 @@ interface CopyText {
   riffOf: (index: number, total: number) => string;
   riffUnavailable: string;
   riffStatus: (name: string, beat: number, total: number) => string;
+  riffNone: string;
+  colorLabel: string;
+  colorDefault: string;
+  colorTension: string;
+  tensionLegend: [string, string, string, string];
+  plainBoards: string;
+  riffNew: string;
+  riffDuplicate: string;
+  riffEdit: string;
+  riffDelete: string;
+  riffExport: string;
+  riffImport: string;
+  riffImportPrompt: string;
+  riffImportBad: string;
+  riffCopied: string;
+  riffCopyCode: string;
+  riffDeleteConfirm: (name: string) => string;
+  riffDefaultName: (n: number) => string;
+  riffCopyOf: (name: string) => string;
   practiceNeedsTransport: string;
   practiceUp: string;
   practiceDown: string;
@@ -294,6 +315,25 @@ const COPY: Record<Language, CopyText> = {
     riffOf: (index, total) => `Riff ${index} of ${total}`,
     riffUnavailable: 'Riffs are only written for pentatonic and blues scales right now.',
     riffStatus: (name, beat, total) => `${name} · beat ${beat}/${total}`,
+    riffNone: 'No riffs for this scale and box yet. Write the first one.',
+    plainBoards: 'Plain fretboards',
+    colorLabel: 'Colour',
+    colorDefault: 'Default',
+    colorTension: 'Tension',
+    tensionLegend: ['Rest', 'Stable', 'Passing', 'Tension'],
+    riffNew: 'New riff',
+    riffDuplicate: 'Duplicate to edit',
+    riffEdit: 'Edit riff',
+    riffDelete: 'Delete riff',
+    riffExport: 'Copy riff code',
+    riffImport: 'Import riff from code',
+    riffImportPrompt: 'Paste a riff code:',
+    riffImportBad: "That isn't a valid riff code. Nothing was imported.",
+    riffCopied: 'Riff code copied. Paste it on another device to import it.',
+    riffCopyCode: 'Copy this riff code:',
+    riffDeleteConfirm: (name) => `Delete "${name}"? This can't be undone.`,
+    riffDefaultName: (n) => `My riff ${n}`,
+    riffCopyOf: (name) => `${name} (copy)`,
     practiceNeedsTransport: 'Press play on the metronome to start',
     practiceUp: 'Ascending',
     practiceDown: 'Descending',
@@ -392,6 +432,25 @@ const COPY: Record<Language, CopyText> = {
     riffOf: (index, total) => `Riff ${index} de ${total}`,
     riffUnavailable: 'Por ahora los riffs solo existen para escalas pentatónicas y blues.',
     riffStatus: (name, beat, total) => `${name} · beat ${beat}/${total}`,
+    riffNone: 'Aún no hay riffs para esta escala y caja. Escribe el primero.',
+    plainBoards: 'Diapasones claros',
+    colorLabel: 'Color',
+    colorDefault: 'Por defecto',
+    colorTension: 'Tensión',
+    tensionLegend: ['Reposo', 'Estable', 'De paso', 'Tensión'],
+    riffNew: 'Riff nuevo',
+    riffDuplicate: 'Duplicar para editar',
+    riffEdit: 'Editar riff',
+    riffDelete: 'Borrar riff',
+    riffExport: 'Copiar código del riff',
+    riffImport: 'Importar riff desde código',
+    riffImportPrompt: 'Pega un código de riff:',
+    riffImportBad: 'Ese código de riff no es válido. No se importó nada.',
+    riffCopied: 'Código copiado. Pégalo en otro dispositivo para importarlo.',
+    riffCopyCode: 'Copia este código de riff:',
+    riffDeleteConfirm: (name) => `¿Borrar "${name}"? No se puede deshacer.`,
+    riffDefaultName: (n) => `Mi riff ${n}`,
+    riffCopyOf: (name) => `${name} (copia)`,
     practiceNeedsTransport: 'Presiona play en el metrónomo para empezar',
     practiceUp: 'Ascendente',
     practiceDown: 'Descendente',
@@ -797,7 +856,7 @@ export class SoloinComponent {
     return null;
   });
 
-  // Riffs are single-box by design (no "connect two shapes" riffs yet), so
+  // A riff is anchored to one box (a multi-box riff just runs on from it), so
   // unlike CAGED-box practice there's nothing to step through — just the
   // first shape the manual multi-select has picked.
   readonly practiceRiffShape = computed<CagedShape | null>(() => {
@@ -808,8 +867,34 @@ export class SoloinComponent {
   readonly availableRiffs = computed<Riff[]>(() => {
     const shape = this.practiceRiffShape();
     if (!shape) return [];
-    return riffsFor(this.effectiveScale(), shape);
+    return riffsFor(this.effectiveScale(), shape, this.userRiffs());
   });
+
+  // The user's own riffs live in this browser (localStorage), not in the
+  // host's session state: they're a personal library, not part of one song.
+  readonly userRiffs = signal<Riff[]>(loadUserRiffs(SCALE_ORDER));
+  // The riff open in the editor (a new one, a copy, or one of the user's), or null.
+  readonly riffDraft = signal<Riff | null>(null);
+  readonly riffNotice = signal('');
+  // Trial switch: draw every fretboard in the riff card's plain look (white
+  // panel, grey lines, ink dots) to compare it against the themed one.
+  readonly plainBoards = signal(true);
+  // With the controls folded away, the board itself says which key and scale it shows.
+  readonly controlsOpen = signal(true);
+  // Colour the scale by how much each note pulls against the tonic. Key and
+  // Practice only: in Progression colour already says which chord a note belongs to.
+  readonly colorByTension = signal(false);
+  readonly scaleLevels = computed(() => {
+    const key = this.activeKey();
+    return this.colorByTension() && key && this.mode() === 'key' ? tensionLevels(this.scaleNotes(), key.root) : null;
+  });
+  // The riff card's zoomed fret window stands in for the full neck.
+  readonly riffZoomed = computed(
+    () =>
+      this.view() === 'practice' &&
+      this.practiceSubmode() === 'riff' &&
+      (this.riffDraft() !== null || this.activeRiff() !== null),
+  );
 
   readonly activeRiff = computed<Riff | null>(() => {
     const riffs = this.availableRiffs();
@@ -889,7 +974,10 @@ export class SoloinComponent {
   // true in key mode (single overview board) and in progression mode once
   // either there are no chords yet or the carousel view is showing just one.
   readonly canExportImage = computed(
-    () => this.mode() !== 'progression' || this.chordView() === 'carousel' || this.chordLayers().length === 0,
+    () =>
+      // The zoomed riff window replaces the board the export draws from.
+      !this.riffZoomed() &&
+      (this.mode() !== 'progression' || this.chordView() === 'carousel' || this.chordLayers().length === 0),
   );
 
   keyLabel(key: Key): string {
@@ -1145,7 +1233,92 @@ export class SoloinComponent {
     this.resetPracticeClock();
   }
 
+  private storeUserRiffs(riffs: Riff[]): void {
+    this.userRiffs.set(riffs);
+    saveUserRiffs(riffs);
+  }
+
+  private openRiffEditor(riff: Riff): void {
+    this.riffNotice.set('');
+    this.resetPracticeClock();
+    this.riffDraft.set(riff);
+  }
+
+  newRiff(): void {
+    const shape = this.practiceRiffShape();
+    if (!shape) return;
+    this.openRiffEditor({
+      id: '',
+      name: { en: '', es: '' },
+      scale: this.effectiveScale(),
+      shape,
+      totalBeats: 4,
+      notes: [],
+      user: true,
+    });
+  }
+
+  duplicateRiff(riff: Riff): void {
+    const name = this.text().riffCopyOf(riff.name[this.language()]);
+    // Filed under the scale on screen, so a minor pentatonic lick copied while in blues stays in blues.
+    this.openRiffEditor({ ...riff, id: '', name: { en: name, es: name }, scale: this.effectiveScale(), user: true });
+  }
+
+  editRiff(riff: Riff): void {
+    this.openRiffEditor(riff);
+  }
+
+  onRiffSaved(riff: Riff): void {
+    const name = riff.name.en || this.text().riffDefaultName(this.userRiffs().length + 1);
+    const saved: Riff = { ...riff, id: riff.id || `u-${Date.now().toString(36)}`, name: { en: name, es: name } };
+    const others = this.userRiffs().filter((r) => r.id !== saved.id);
+    this.storeUserRiffs([saved, ...others]);
+    this.riffDraft.set(null);
+    this.riffIndex.set(Math.max(0, this.availableRiffs().findIndex((r) => r.id === saved.id)));
+  }
+
+  cancelRiffEdit(): void {
+    this.riffDraft.set(null);
+  }
+
+  deleteRiff(riff: Riff): void {
+    if (!confirm(this.text().riffDeleteConfirm(riff.name[this.language()]))) return;
+    this.storeUserRiffs(this.userRiffs().filter((r) => r.id !== riff.id));
+    this.riffIndex.set(0);
+    this.resetPracticeClock();
+  }
+
+  async exportRiff(riff: Riff): Promise<void> {
+    const code = encodeRiff(riff);
+    try {
+      await navigator.clipboard.writeText(code);
+      this.riffNotice.set(this.text().riffCopied);
+    } catch {
+      // No clipboard access (insecure origin, denied permission): hand the code over to copy by hand.
+      prompt(this.text().riffCopyCode, code);
+    }
+  }
+
+  importRiff(): void {
+    const code = prompt(this.text().riffImportPrompt);
+    if (!code) return;
+    const riff = decodeRiff(code, SCALE_ORDER);
+    if (!riff) {
+      this.riffNotice.set(this.text().riffImportBad);
+      return;
+    }
+    const saved: Riff = { ...riff, id: `u-${Date.now().toString(36)}` };
+    this.storeUserRiffs([saved, ...this.userRiffs()]);
+    // Jump to where the riff lives so it's on screen straight away.
+    this.scaleOverride.set(saved.scale);
+    this.selectedCagedShapes.set(new Set([saved.shape]));
+    this.riffIndex.set(Math.max(0, this.availableRiffs().findIndex((r) => r.id === saved.id)));
+    this.riffNotice.set('');
+    this.resetPracticeClock();
+  }
+
   stepRiff(delta: number): void {
+    this.riffNotice.set('');
     const total = this.availableRiffs().length;
     if (total === 0) return;
     this.riffIndex.update((i) => ((i + delta) % total + total) % total);

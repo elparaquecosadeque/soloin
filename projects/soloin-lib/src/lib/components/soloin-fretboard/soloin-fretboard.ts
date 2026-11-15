@@ -82,6 +82,8 @@ export class SoloinFretboard {
   readonly scaleNotes = input.required<Note[]>();
   readonly scaleLabels = input<string[]>([]); // parallel to scaleNotes
   readonly scaleRoot = input<Note | null>(null);
+  // Parallel to scaleNotes: 0 rest .. 3 tense (see tension.ts). Null = one colour for the whole scale.
+  readonly scaleLevels = input<readonly number[] | null>(null);
   readonly chordLayers = input<ChordLayer[]>([]);
   // Empty = no CAGED filtering (show everything); one or more ranges = only
   // positions inside at least one of them stay visible — lets the caller
@@ -89,6 +91,8 @@ export class SoloinFretboard {
   readonly cagedBoxes = input<FretRange[]>([]);
   readonly tuning = input<Tuning>(TUNINGS[0]);
   readonly ariaLabel = input('Fretboard');
+  // Shown inside the board's own frame, e.g. the key and scale while the host's controls are folded away.
+  readonly caption = input('');
 
   // Selectable mode: every position is drawn as a dimmed, focusable note; a click
   // (or Enter/Space) toggles that exact position and emits it. The parent owns the
@@ -186,6 +190,9 @@ export class SoloinFretboard {
     const scaleRootPc = this.scaleRoot();
     const scaleLabelByPc = new Map<Note, string>();
     scaleNotesArr.forEach((n, i) => scaleLabelByPc.set(n, scaleLabelsArr[i] ?? ''));
+    const levels = this.scaleLevels();
+    const scaleColor = (pc: Note) =>
+      levels ? `--_chords-tension-${levels[scaleNotesArr.indexOf(pc)] ?? 2}` : '--_chords-scale-note';
 
     const layers = this.chordLayers();
     const boxes = this.cagedBoxes();
@@ -218,7 +225,7 @@ export class SoloinFretboard {
             });
           });
         } else if (scaleLabelByPc.has(pc)) {
-          out.push({ x, y, r: 10, colorVar: '--_chords-scale-note', label: scaleLabelByPc.get(pc)!, isRoot: pc === scaleRootPc });
+          out.push({ x, y, r: 10, colorVar: scaleColor(pc), label: scaleLabelByPc.get(pc)!, isRoot: pc === scaleRootPc });
         }
       }
     });

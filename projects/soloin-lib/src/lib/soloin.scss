@@ -8,6 +8,10 @@
   --_chords-on-primary: var(--chords-on-primary, #ffffff);
   --_chords-danger: var(--chords-danger, #a855f7);
   --_chords-chord-color-1: var(--chords-chord-color-1, var(--chords-primary, #3b82f6));
+  --_chords-tension-0: var(--chords-tension-0, #1e40af);
+  --_chords-tension-1: var(--chords-tension-1, #0e7490);
+  --_chords-tension-2: var(--chords-tension-2, #64748b);
+  --_chords-tension-3: var(--chords-tension-3, #dc2626);
   --_chords-chord-color-2: var(--chords-chord-color-2, var(--chords-secondary, #06b6d4));
   --_chords-chord-color-3: var(--chords-chord-color-3, var(--chords-highlight, #f59e0b));
   --_chords-chord-color-4: var(--chords-chord-color-4, var(--chords-danger, #a855f7));
@@ -659,4 +663,19 @@
       cursor: not-allowed;
     }
   }
+}
+
+.riff-actions {
+  display: inline-flex;
+  gap: 6px;
+
+  .icon-toggle {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+// While a riff is being edited, key, scale and box stay as they are.
+[inert] {
+  opacity: 0.45;
 }

@@ -1,5 +1,5 @@
-import type { ScaleName } from '@gblp/music-theory';
-import type { CagedShape } from './components/soloin-fretboard/caged';
+import { buildScale, mod12, type Note, type ScaleName } from '@gblp/music-theory';
+import { CAGED_SHAPES, type CagedShape, cagedBoxRange } from './components/soloin-fretboard/caged';
 
 export interface LocalizedText {
   en: string;
@@ -14,6 +14,9 @@ export interface RiffNote {
   // How this note is reached from the previous one (always on the same string).
   technique?: 'slide' | 'hammer' | 'pull';
   bend?: number; // semitones the note is bent up after picking: 1 = half, 2 = full
+  vibrato?: boolean;
+  palmMute?: boolean;
+  dead?: boolean; // muted "x" note: no pitch, so never combined with bend or vibrato
 }
 
 export interface Riff {
@@ -23,6 +26,63 @@ export interface Riff {
   shape: CagedShape;
   totalBeats: number;
   notes: RiffNote[];
+  // How many consecutive CAGED boxes the riff runs through, starting at
+  // `shape` and moving up the neck. Absent = 1. Offsets past the first box
+  // simply exceed 4, so a multi-box riff still transposes like any other.
+  span?: number;
+  user?: boolean; // written in the editor, not shipped with the library
+}
+
+export interface RiffBox {
+  shape: CagedShape;
+  start: number; // fret offsets relative to the first box's start
+  end: number;
+}
+
+// The boxes a riff anchored at `shape` covers. The distance between
+// neighbouring boxes is the same in every key, so this needs no root.
+export function riffBoxes(shape: CagedShape, span = 1): RiffBox[] {
+  const boxes: RiffBox[] = [];
+  let index = CAGED_SHAPES.indexOf(shape);
+  let start = 0;
+  for (let i = 0; i < Math.max(1, span); i++) {
+    const current = CAGED_SHAPES[index % CAGED_SHAPES.length];
+    boxes.push({ shape: current, start, end: start + 4 });
+    const next = CAGED_SHAPES[(index + 1) % CAGED_SHAPES.length];
+    start += mod12(cagedBoxRange(next, 0 as Note).start - cagedBoxRange(current, 0 as Note).start);
+    index++;
+  }
+  return boxes;
+}
+
+const OPEN_PC = [4, 11, 7, 2, 9, 4]; // standard tuning, high e first
+
+// The classic diagonal: climb the low strings of one box, slide up the D
+// string into the next box, and finish on its high strings. Built from the
+// same box + scale math as everything else, so no fret is hand-typed.
+function connectRiff(scale: ScaleName, shape: CagedShape): Riff {
+  const pcs = buildScale(0 as Note, scale);
+  const base = cagedBoxRange(shape, 0 as Note).start;
+  const [a, b] = riffBoxes(shape, 2);
+  const on = (s: number, box: RiffBox) =>
+    Array.from({ length: 5 }, (_, i) => box.start + i).filter((f) => pcs.includes(mod12(OPEN_PC[s] + base + f)));
+  const notes: RiffNote[] = [];
+  const add = (stringIndex: number, fretOffset: number, technique?: RiffNote['technique']) =>
+    notes.push({ stringIndex, fretOffset, beat: notes.length * 0.5, duration: 0.5, ...(technique && { technique }) });
+  for (const s of [5, 4, 3]) for (const f of on(s, a)) add(s, f);
+  const last = notes[notes.length - 1].fretOffset;
+  const bridge = on(3, b).find((f) => f > last);
+  if (bridge !== undefined) add(3, bridge, 'slide');
+  for (const s of [2, 1, 0]) for (const f of on(s, b)) add(s, f);
+  return {
+    id: `${scale}-${shape}-connect`,
+    name: { en: `Connect ${a.shape} → ${b.shape}`, es: `Conecta ${a.shape} → ${b.shape}` },
+    scale,
+    shape,
+    span: 2,
+    totalBeats: Math.ceil((notes.length * 0.5) / 4) * 4,
+    notes,
+  };
 }
 
 // Authored at root C, frets expressed as offsets from the box's own start
@@ -118,13 +178,36 @@ export const RIFFS: Riff[] = [
   { id: 'blues-D-desc', name: { en: 'Descending Run', es: 'Bajada' }, scale: 'blues', shape: 'D', totalBeats: 7.5, notes: [{ stringIndex: 0, fretOffset: 4, beat: 0, duration: 0.5 }, { stringIndex: 0, fretOffset: 3, beat: 0.5, duration: 0.5 }, { stringIndex: 0, fretOffset: 1, beat: 1, duration: 0.5 }, { stringIndex: 1, fretOffset: 3, beat: 1.5, duration: 0.5 }, { stringIndex: 1, fretOffset: 1, beat: 2, duration: 0.5 }, { stringIndex: 2, fretOffset: 2, beat: 2.5, duration: 0.5 }, { stringIndex: 2, fretOffset: 1, beat: 3, duration: 0.5 }, { stringIndex: 2, fretOffset: 0, beat: 3.5, duration: 0.5 }, { stringIndex: 3, fretOffset: 3, beat: 4, duration: 0.5 }, { stringIndex: 3, fretOffset: 0, beat: 4.5, duration: 0.5 }, { stringIndex: 4, fretOffset: 3, beat: 5, duration: 0.5 }, { stringIndex: 4, fretOffset: 0, beat: 5.5, duration: 0.5 }, { stringIndex: 5, fretOffset: 4, beat: 6, duration: 0.5 }, { stringIndex: 5, fretOffset: 3, beat: 6.5, duration: 0.5 }, { stringIndex: 5, fretOffset: 1, beat: 7, duration: 0.5 }] },
 ];
 
-export function riffsFor(scale: ScaleName, shape: CagedShape): Riff[] {
+// The diagonal needs no phrase written per scale, so every scale gets one —
+// including the modes, which have no composed licks yet.
+const CONNECT_SCALES: ScaleName[] = [
+  'minorPentatonic',
+  'majorPentatonic',
+  'blues',
+  'ionian',
+  'dorian',
+  'phrygian',
+  'lydian',
+  'mixolydian',
+  'aeolian',
+  'locrian',
+];
+
+const CONNECT_RIFFS: Riff[] = CONNECT_SCALES.flatMap((scale) =>
+  CAGED_SHAPES.map((shape) => connectRiff(scale, shape)),
+);
+
+export const FACTORY_RIFFS: Riff[] = [...RIFFS, ...CONNECT_RIFFS];
+
+export function riffsFor(scale: ScaleName, shape: CagedShape, extra: readonly Riff[] = []): Riff[] {
   // The blues scale is the minor pentatonic plus the b5, so every minor
   // pentatonic lick is also a blues lick (its box runs would just repeat the
   // blues ones minus a note, so those stay out).
-  return RIFFS.filter(
+  // `extra` (the user's own riffs) is listed first.
+  return [...extra, ...FACTORY_RIFFS].filter(
     (r) =>
       r.shape === shape &&
-      (r.scale === scale || (scale === 'blues' && r.scale === 'minorPentatonic' && !/-(asc|desc)$/.test(r.id))),
+      (r.scale === scale ||
+        (scale === 'blues' && r.scale === 'minorPentatonic' && !/-(asc|desc|connect)$/.test(r.id))),
   );
 }

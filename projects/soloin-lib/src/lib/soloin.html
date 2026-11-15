@@ -4,7 +4,7 @@
       <h2 class="title">{{ text().title }}</h2>
       <p class="subtitle">{{ text().subtitle }}</p>
     </div>
-    <div class="mode-toggle" role="tablist">
+    <div class="mode-toggle" role="tablist" [attr.inert]="riffDraft() ? '' : null">
       <button
         type="button"
         role="tab"
@@ -44,7 +44,12 @@
     </div>
   </header>
 
-  <details class="section-panel" open>
+  <details
+    class="section-panel"
+    open
+    [attr.inert]="riffDraft() ? '' : null"
+    (toggle)="controlsOpen.set($any($event.target).open)"
+  >
     <summary>{{ text().controlsLabel }}</summary>
     <div class="controls">
       <div class="control-grid">
@@ -108,6 +113,32 @@
               {{ text().degreesLabelMode }}
             </button>
           </div>
+
+          @if (mode() === 'key') {
+            <div class="control">
+              <span class="control-label">{{ text().colorLabel }}</span>
+              <div class="view-toggle" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="!colorByTension()"
+                  [class.active]="!colorByTension()"
+                  (click)="colorByTension.set(false)"
+                >
+                  {{ text().colorDefault }}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="colorByTension()"
+                  [class.active]="colorByTension()"
+                  (click)="colorByTension.set(true)"
+                >
+                  {{ text().colorTension }}
+                </button>
+              </div>
+            </div>
+          }
 
           <!-- Practice picks the highlight itself (per drill), so the toggle would only repeat it. -->
           @if (view() !== 'practice') {
@@ -262,6 +293,12 @@
           }
         </div>
       }
+      <!-- Trial: compare the plain riff-card look against the themed boards. -->
+      <soloin-toggle-switch
+        [label]="text().plainBoards"
+        [checked]="plainBoards()"
+        (toggled)="plainBoards.set($event)"
+      />
     </div>
   </details>
 
@@ -274,7 +311,7 @@
   @if (view() === 'practice') {
     <div class="practice-panel">
       <div class="control-row">
-        <div class="view-toggle" role="tablist">
+        <div class="view-toggle" role="tablist" [attr.inert]="riffDraft() ? '' : null">
           <button
             type="button"
             role="tab"
@@ -401,22 +438,111 @@
             <button type="button" (click)="adjustPracticeNoteBeats(1)" aria-label="+">+</button>
           </div>
         }
-        @if (practiceSubmode() === 'riff' && activeRiff(); as riff) {
-          <div class="practice-stepper">
-            <button type="button" (click)="stepRiff(-1)" [attr.aria-label]="text().previous">
-              ‹
-            </button>
-            <output
-              >{{ riff.name[language()] }} —
-              {{ text().riffOf(riffIndex() + 1, availableRiffs().length) }}</output
+        @if (practiceSubmode() === 'riff' && !riffDraft()) {
+          @if (activeRiff(); as riff) {
+            <div class="practice-stepper">
+              <button type="button" (click)="stepRiff(-1)" [attr.aria-label]="text().previous">
+                ‹
+              </button>
+              <output
+                >{{ riff.name[language()] }} —
+                {{
+                  text().riffOf(
+                    (riffIndex() % availableRiffs().length) + 1,
+                    availableRiffs().length
+                  )
+                }}</output
+              >
+              <button type="button" (click)="stepRiff(1)" [attr.aria-label]="text().next">›</button>
+            </div>
+          }
+          <div class="riff-actions">
+            <button
+              type="button"
+              class="icon-toggle"
+              [attr.aria-label]="text().riffNew"
+              [attr.title]="text().riffNew"
+              (click)="newRiff()"
             >
-            <button type="button" (click)="stepRiff(1)" [attr.aria-label]="text().next">›</button>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            @if (activeRiff(); as riff) {
+              @if (riff.user) {
+                <button
+                  type="button"
+                  class="icon-toggle"
+                  [attr.aria-label]="text().riffEdit"
+                  [attr.title]="text().riffEdit"
+                  (click)="editRiff(riff)"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 20h4L19 9l-4-4L4 16z" />
+                    <path d="m13 7 4 4" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="icon-toggle"
+                  [attr.aria-label]="text().riffExport"
+                  [attr.title]="text().riffExport"
+                  (click)="exportRiff(riff)"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="9" y="9" width="11" height="11" rx="2" />
+                    <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="icon-toggle"
+                  [attr.aria-label]="text().riffDelete"
+                  [attr.title]="text().riffDelete"
+                  (click)="deleteRiff(riff)"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M6 7l1 13h10l1-13" />
+                    <path d="M9 7V4h6v3" />
+                  </svg>
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="icon-toggle"
+                  [attr.aria-label]="text().riffDuplicate"
+                  [attr.title]="text().riffDuplicate"
+                  (click)="duplicateRiff(riff)"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="9" y="9" width="11" height="11" rx="2" />
+                    <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+                    <path d="M14.5 12v5M12 14.5h5" />
+                  </svg>
+                </button>
+              }
+            }
+            <button
+              type="button"
+              class="icon-toggle"
+              [attr.aria-label]="text().riffImport"
+              [attr.title]="text().riffImport"
+              (click)="importRiff()"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M5 20h14" />
+              </svg>
+            </button>
           </div>
         }
       </div>
 
       @if (practiceSubmode() === 'riff') {
-        @if (activeRiff(); as riff) {
+        @if (riffDraft() ?? activeRiff(); as riff) {
           <soloin-riff-tab
             [riff]="riff"
             [boxStart]="practiceRiffBoxStart()"
@@ -425,14 +551,24 @@
             [scaleNotes]="scaleNotes()"
             [scaleLabels]="scaleLabels()"
             [scaleRoot]="activeKey()?.root ?? null"
+            [scaleLevels]="scaleLevels()"
             [progress]="practiceRiffProgress()"
+            [editing]="riffDraft() !== null"
+            [language]="language()"
+            (saved)="onRiffSaved($event)"
+            (cancelled)="cancelRiffEdit()"
           />
         } @else {
-          <p class="practice-status">{{ text().riffUnavailable }}</p>
+          <p class="practice-status">{{ text().riffNone }}</p>
+        }
+        @if (riffNotice()) {
+          <p class="practice-status" role="status">{{ riffNotice() }}</p>
         }
       }
 
-      @if (!transportPlaying()) {
+      @if (riffDraft()) {
+        <!-- The editor carries its own hints; transport status would only add noise. -->
+      } @else if (!transportPlaying()) {
         <p class="practice-status">{{ text().practiceNeedsTransport }}</p>
       } @else if (practiceCountingInBeats(); as beats) {
         <p class="practice-status">{{ text().practiceCountingIn(beats) }}</p>
@@ -551,6 +687,7 @@
       </div>
 
       <soloin-fretboard
+        [class.plain]="plainBoards()"
         [scaleNotes]="[]"
         [selectable]="true"
         [selectedPositions]="identifyMarks()"
@@ -601,13 +738,16 @@
         }
       }
     </div>
-  } @else if (view() === 'practice' && practiceSubmode() === 'riff' && activeRiff()) {
+  } @else if (riffZoomed()) {
     <!-- The riff card draws its own zoomed fret window; the full neck would only repeat it. -->
   } @else if (mode() !== 'progression' || chordLayers().length === 0) {
     <soloin-fretboard
+      [class.plain]="plainBoards()"
       [scaleNotes]="keyEditing() ? [] : scaleNotes()"
       [scaleLabels]="keyEditing() ? [] : scaleLabels()"
       [scaleRoot]="keyEditing() ? null : (activeKey()?.root ?? null)"
+      [scaleLevels]="scaleLevels()"
+      [caption]="mode() === 'key' && !controlsOpen() ? riffTitle() : ''"
       [chordLayers]="keyEditing() ? [] : keyFretboardLayers()"
       [cagedBoxes]="keyEditing() ? [] : cagedBoxes()"
       [tuning]="tuning()"
@@ -632,6 +772,7 @@
               }
             </div>
             <soloin-fretboard
+              [class.plain]="plainBoards()"
               [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
               [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
               [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
@@ -671,6 +812,7 @@
           </button>
         </div>
         <soloin-fretboard
+          [class.plain]="plainBoards()"
           [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
           [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
           [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
@@ -683,6 +825,21 @@
         />
       </div>
     }
+  }
+
+  @if (scaleLevels()) {
+    <div class="legend" role="list" [attr.aria-label]="text().colorTension">
+      @for (label of text().tensionLegend; track label; let level = $index) {
+        <span class="legend-item" role="listitem">
+          <span
+            class="legend-dot"
+            [style.background]="'var(--_chords-tension-' + level + ')'"
+            aria-hidden="true"
+          ></span>
+          <span>{{ label }}</span>
+        </span>
+      }
+    </div>
   }
 
   @if (chordLayers().length > 0) {
@@ -709,7 +866,7 @@
         type="button"
         (click)="exportPng()"
         [disabled]="!canExportImage()"
-        [title]="canExportImage() ? '' : text().exportUnavailable"
+        [title]="canExportImage() || riffZoomed() ? '' : text().exportUnavailable"
       >
         {{ text().exportPng }}
       </button>
@@ -717,7 +874,7 @@
         type="button"
         (click)="exportPdf()"
         [disabled]="!canExportImage()"
-        [title]="canExportImage() ? '' : text().exportUnavailable"
+        [title]="canExportImage() || riffZoomed() ? '' : text().exportUnavailable"
       >
         {{ text().exportPdf }}
       </button>
