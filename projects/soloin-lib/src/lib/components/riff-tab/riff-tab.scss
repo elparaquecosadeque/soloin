@@ -15,6 +15,17 @@
   width: 100%;
 }
 
+:host(.plain) {
+  --_chords-surface: #ffffff;
+  --_chords-text: #1f2937;
+  --_chords-muted: #6b7280;
+  --_chords-border: #e5e7eb;
+  --_chords-root: #dc2626;
+  // The accent stays the host's, darkened enough to read on white.
+  --_chords-primary: color-mix(in srgb, var(--chords-primary, #2563eb) 60%, #0f172a);
+  --_chords-on-primary: #ffffff;
+}
+
 .riff-card {
   display: flex;
   flex-direction: column;

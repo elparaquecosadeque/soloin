@@ -291,14 +291,29 @@
               (toggled)="toggleChordTones($event)"
             />
           }
+
+          @if (highlightMode() === 'caged' && isStandardTuning() && view() !== 'practice') {
+            <soloin-toggle-switch
+              [label]="text().boxBands"
+              [checked]="boxBands()"
+              (toggled)="boxBands.set($event)"
+            />
+          }
+
+          <soloin-toggle-switch
+            [label]="text().plainBoards"
+            [checked]="plainBoards()"
+            (toggled)="plainBoards.set($event)"
+          />
         </div>
+      } @else {
+        <!-- Identify has no display row of its own; the look switch still belongs to every mode. -->
+        <soloin-toggle-switch
+          [label]="text().plainBoards"
+          [checked]="plainBoards()"
+          (toggled)="plainBoards.set($event)"
+        />
       }
-      <!-- Trial: compare the plain riff-card look against the themed boards. -->
-      <soloin-toggle-switch
-        [label]="text().plainBoards"
-        [checked]="plainBoards()"
-        (toggled)="plainBoards.set($event)"
-      />
     </div>
   </details>
 
@@ -554,6 +569,7 @@
             [scaleLevels]="scaleLevels()"
             [progress]="practiceRiffProgress()"
             [editing]="riffDraft() !== null"
+            [plain]="plainBoards()"
             [language]="language()"
             (saved)="onRiffSaved($event)"
             (cancelled)="cancelRiffEdit()"
@@ -687,7 +703,9 @@
       </div>
 
       <soloin-fretboard
-        [class.plain]="plainBoards()"
+        [plain]="plainBoards()"
+        [cropToBoxes]="view() === 'key'"
+        [boxBands]="boxBands() && view() === 'key'"
         [scaleNotes]="[]"
         [selectable]="true"
         [selectedPositions]="identifyMarks()"
@@ -742,12 +760,14 @@
     <!-- The riff card draws its own zoomed fret window; the full neck would only repeat it. -->
   } @else if (mode() !== 'progression' || chordLayers().length === 0) {
     <soloin-fretboard
-      [class.plain]="plainBoards()"
+      [plain]="plainBoards()"
+      [cropToBoxes]="true"
+      [boxBands]="boxBands()"
       [scaleNotes]="keyEditing() ? [] : scaleNotes()"
       [scaleLabels]="keyEditing() ? [] : scaleLabels()"
       [scaleRoot]="keyEditing() ? null : (activeKey()?.root ?? null)"
       [scaleLevels]="scaleLevels()"
-      [caption]="mode() === 'key' && !controlsOpen() ? riffTitle() : ''"
+      [caption]="mode() === 'key' && (plainBoards() || !controlsOpen()) ? riffTitle() : ''"
       [chordLayers]="keyEditing() ? [] : keyFretboardLayers()"
       [cagedBoxes]="keyEditing() ? [] : cagedBoxes()"
       [tuning]="tuning()"
@@ -772,7 +792,9 @@
               }
             </div>
             <soloin-fretboard
-              [class.plain]="plainBoards()"
+              [plain]="plainBoards()"
+              [cropToBoxes]="true"
+              [boxBands]="boxBands()"
               [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
               [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
               [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"
@@ -812,7 +834,9 @@
           </button>
         </div>
         <soloin-fretboard
-          [class.plain]="plainBoards()"
+          [plain]="plainBoards()"
+          [cropToBoxes]="true"
+          [boxBands]="boxBands()"
           [scaleNotes]="showScaleNotes() ? scaleNotes() : []"
           [scaleLabels]="showScaleNotes() ? scaleLabels() : []"
           [scaleRoot]="showScaleNotes() ? (activeKey()?.root ?? null) : null"

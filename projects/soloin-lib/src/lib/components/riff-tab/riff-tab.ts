@@ -76,6 +76,7 @@ const TECHNIQUES: { id: Technique; mark: string }[] = [
   selector: 'soloin-riff-tab',
   standalone: true,
   templateUrl: './riff-tab.html',
+  host: { '[class.plain]': 'plain()' },
   styleUrl: './riff-tab.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -93,6 +94,8 @@ export class RiffTab {
   // 0..1 from the host transport, null while it isn't running.
   readonly progress = input<number | null>(null);
   readonly editing = input(false);
+  // White card with grey hardware whatever the host theme, matching soloin-fretboard's plain look.
+  readonly plain = input(false);
   readonly language = input<'en' | 'es'>('en');
 
   readonly saved = output<Riff>();

@@ -16,6 +16,7 @@ interface RenderDot {
   x: number;
   y: number;
   r: number;
+  ring: number | null; // radius of the root ring, null = none
   colorVar: string;
   label: string;
   isRoot: boolean;
@@ -49,33 +50,50 @@ export const fretPositionKey = (string: number, fret: number): string => `${stri
 const STRING_COUNT = 6;
 const FRETS = 12;
 
-// Geometry constants, adapted from bass-notes' fretboard layout (ML/OPEN_W/
-// FRET_W/STR_H/MT/MB) for 6 strings instead of 4.
-const ML = 36;
-const OPEN_W = 44;
-const FRET_W = 56;
-const STR_H = 48;
-const MT = 24;
-const MB = 36;
-const W = ML + OPEN_W + FRETS * FRET_W;
-const SVG_W = W + 16;
-const SVG_H = MT + (STRING_COUNT - 1) * STR_H + MB;
+// Two looks, two sets of measurements. THEMED is the original layout
+// (adapted from bass-notes' fretboard). PLAIN copies the riff card's fret
+// window number for number — same cell size, string gap, margins, dot and
+// type sizes — so every board in Soloin reads as the same drawing; the open
+// strings are simply its first cell, as in a riff anchored at fret 0.
+interface Look {
+  ml: number; // left margin, up to the first fret line
+  openW: number; // width of the open-string column
+  fretW: number;
+  strH: number;
+  mt: number;
+  mb: number;
+  padR: number;
+  dot: number; // radius of a full-size note
+  nest: number; // how much each stacked chord layer shrinks
+  scaleDot: number;
+  ring: number; // selection / preview ring
+  markRing: number;
+  hit: number;
+  label: number; // font sizes
+  labelWeight: number;
+  stringSize: number;
+  stringWeight: number;
+  numSize: number;
+}
 
-const dotX = (f: number): number => (f === 0 ? ML + OPEN_W / 2 : ML + OPEN_W + (f - 0.5) * FRET_W);
-const dotY = (si: number): number => MT + si * STR_H;
+const THEMED: Look = {
+  ml: 36, openW: 44, fretW: 56, strH: 48, mt: 24, mb: 36, padR: 16,
+  dot: 13, nest: 4, scaleDot: 10, ring: 17, markRing: 18, hit: 20,
+  label: 11, labelWeight: 800, stringSize: 13, stringWeight: 600, numSize: 12,
+};
 
-const CENTER_Y = MT + ((STRING_COUNT - 1) / 2) * STR_H;
-const POSITION_MARKERS = [
-  ...[3, 5, 7, 9].map((f) => ({ cx: dotX(f), cy: CENTER_Y })),
-  { cx: dotX(12), cy: CENTER_Y - STR_H / 2 },
-  { cx: dotX(12), cy: CENTER_Y + STR_H / 2 },
-];
+const PLAIN: Look = {
+  ml: 34, openW: 64, fretW: 64, strH: 26, mt: 16, mb: 34, padR: 8,
+  dot: 11, nest: 3.5, scaleDot: 11, ring: 14, markRing: 15, hit: 13,
+  label: 10, labelWeight: 700, stringSize: 11, stringWeight: 400, numSize: 11,
+};
 
 export const FRETBOARD_FONT = "'Segoe UI', Roboto, system-ui, -apple-system, sans-serif";
 
 @Component({
   selector: 'soloin-fretboard',
   templateUrl: './soloin-fretboard.html',
+  host: { '[class.plain]': 'plain()' },
   styleUrl: './soloin-fretboard.scss',
 })
 export class SoloinFretboard {
@@ -89,8 +107,18 @@ export class SoloinFretboard {
   // positions inside at least one of them stay visible — lets the caller
   // overlay several boxes at once (e.g. practicing a shift from C to A).
   readonly cagedBoxes = input<FretRange[]>([]);
+  // Draw only the frets the CAGED boxes cover (growing as boxes are added)
+  // instead of the whole neck, so the eye stays on the part being used.
+  readonly cropToBoxes = input(false);
+  // Tint the frets each box covers and name it, as the riff card does. Boxes
+  // overlap, so this is the only way to tell which ones are on.
+  readonly boxBands = input(false);
   readonly tuning = input<Tuning>(TUNINGS[0]);
   readonly ariaLabel = input('Fretboard');
+  // The riff card's look: white panel, thin grey hardware, ink dots with a red
+  // root, every fret numbered. Drawn through attributes (not just CSS) so image
+  // export, which serializes the SVG on its own, comes out the same.
+  readonly plain = input(false);
   // Shown inside the board's own frame, e.g. the key and scale while the host's controls are folded away.
   readonly caption = input('');
 
@@ -124,8 +152,8 @@ export class SoloinFretboard {
     const strings = this.tuning().strings;
     return [...this.markedPositions()].flatMap((key) => {
       const [s, f] = key.split(':').map(Number);
-      if (!Number.isInteger(s) || !Number.isInteger(f) || strings[s] === undefined || f < 0 || f > FRETS) return [];
-      return [{ key, x: dotX(f), y: dotY(s), label: noteName(mod12(strings[s] + f)) }];
+      if (!Number.isInteger(s) || !Number.isInteger(f) || strings[s] === undefined || !this.shows(f)) return [];
+      return [{ key, x: this.x(f), y: this.y(s), label: noteName(mod12(strings[s] + f)) }];
     });
   });
   readonly positionAriaLabel = input<(note: string, stringNote: string, fret: number) => string>(
@@ -135,38 +163,125 @@ export class SoloinFretboard {
   readonly svgRef = viewChild.required<ElementRef<SVGSVGElement>>('svg');
 
   readonly fontFamily = FRETBOARD_FONT;
-  readonly viewBox = `0 0 ${SVG_W} ${SVG_H}`;
-  readonly stringLabelX = ML - 6;
-  readonly stringLineX2 = W;
-  readonly stringY1 = MT;
-  readonly stringY2 = dotY(STRING_COUNT - 1);
-  readonly fretNumY = SVG_H - 6;
-  readonly nutX = ML;
+  readonly look = computed(() => (this.plain() ? PLAIN : THEMED));
+  // First and last fret drawn. The whole neck unless cropping to the boxes.
+  readonly span = computed(() => {
+    const boxes = this.cagedBoxes();
+    if (!this.cropToBoxes() || boxes.length === 0) return { from: 0, to: FRETS };
+    const from = Math.min(FRETS - 1, Math.min(...boxes.map((b) => b.start)));
+    return { from, to: Math.min(FRETS, Math.max(...boxes.map((b) => b.end))) };
+  });
+  private shows(fret: number): boolean {
+    return fret >= this.span().from && fret <= this.span().to;
+  }
+  private x(fret: number): number {
+    const g = this.look();
+    const { from } = this.span();
+    // A window that starts up the neck has no open-string column: every fret is an equal cell.
+    if (from > 0) return g.ml + (fret - from + 0.5) * g.fretW;
+    return fret === 0 ? g.ml + g.openW / 2 : g.ml + g.openW + (fret - 0.5) * g.fretW;
+  }
+  private y(stringIndex: number): number {
+    const g = this.look();
+    return g.mt + stringIndex * g.strH;
+  }
+  private readonly width = computed(() => {
+    const g = this.look();
+    const { from, to } = this.span();
+    return from > 0 ? g.ml + (to - from + 1) * g.fretW : g.ml + g.openW + to * g.fretW;
+  });
+  // A cropped board is a handful of frets: let it fill the width like the riff card does.
+  readonly cropped = computed(() => this.span().from > 0 || this.span().to < FRETS);
+  readonly hasNut = computed(() => this.span().from === 0);
 
-  readonly fretLines = Array.from({ length: FRETS + 1 }, (_, i) => ({
-    x: ML + OPEN_W + i * FRET_W,
-    isNut: i === 0,
-  }));
-  readonly fretNumbers = [0, 3, 5, 7, 9, 12].map((f) => ({ x: dotX(f), label: f }));
-  readonly positionMarkers = POSITION_MARKERS;
+  readonly bands = computed(() => {
+    if (!this.boxBands()) return [];
+    const g = this.look();
+    const { from, to } = this.span();
+    const cellW = (f: number) => (f === 0 && from === 0 ? g.openW : g.fretW);
+    return [...this.cagedBoxes()]
+      .sort((a, b) => a.start - b.start)
+      .filter((box) => box.start <= to && box.end >= from)
+      .map((box, i) => {
+        const first = Math.max(box.start, from);
+        const last = Math.min(box.end, to);
+        const x = this.x(first) - cellW(first) / 2;
+        return {
+          x,
+          width: this.x(last) + cellW(last) / 2 - x,
+          y: g.mt - 10,
+          height: this.y(STRING_COUNT - 1) - g.mt + 20,
+          labelX: this.x(first) - cellW(first) / 2 + 9,
+          shape: box.shape ?? '',
+          colorVar: i % 2 ? '--_chords-chord-color-1' : '--_chords-chord-color-2',
+        };
+      });
+  });
+  private readonly height = computed(() => this.y(STRING_COUNT - 1) + this.look().mb);
+  readonly viewBox = computed(() => `0 0 ${this.width() + this.look().padR} ${this.height()}`);
+  // The riff card centres its string names in the margin; the themed board hangs them off the nut.
+  readonly stringLabelX = computed(() => (this.plain() ? 14 : this.look().ml - 6));
+  readonly stringLineX2 = this.width;
+  readonly stringY1 = computed(() => this.look().mt);
+  readonly stringY2 = computed(() => this.y(STRING_COUNT - 1));
+  readonly fretNumY = computed(() => (this.plain() ? this.stringY2() + 28 : this.height() - 6));
+  readonly nutX = computed(() => this.look().ml);
 
-  readonly strings = computed(() => this.tuning().strings.map((openPc, si) => ({ label: noteName(openPc), y: dotY(si) })));
+  readonly fretLines = computed(() => {
+    const g = this.look();
+    const { from, to } = this.span();
+    if (from > 0) {
+      // Left edge, then the wire closing each fret in the window.
+      return Array.from({ length: to - from + 2 }, (_, i) => ({ x: g.ml + i * g.fretW, isNut: i === 0 && this.plain() }));
+    }
+    const wires = Array.from({ length: to + 1 }, (_, i) => ({
+      x: g.ml + g.openW + i * g.fretW,
+      // Plain: the board's left edge is the bold line, every wire after it is equal.
+      isNut: i === 0 && !this.plain(),
+    }));
+    return this.plain() ? [{ x: g.ml, isNut: true }, ...wires] : wires;
+  });
+  readonly fretNumbers = computed(() =>
+    Array.from({ length: FRETS + 1 }, (_, f) => ({ x: this.x(f), label: f })).filter(
+      // A cropped window numbers every fret: with so few, the usual 3-5-7-9 hints may all fall outside it.
+      (n) => this.shows(n.label) && (this.plain() || this.cropped() || [0, 3, 5, 7, 9, 12].includes(n.label)),
+    ),
+  );
+  readonly positionMarkers = computed(() => {
+    const g = this.look();
+    const centerY = g.mt + ((STRING_COUNT - 1) / 2) * g.strH;
+    return [
+      ...[3, 5, 7, 9].map((f) => ({ f, cx: this.x(f), cy: centerY })),
+      { f: 12, cx: this.x(12), cy: centerY - g.strH / 2 },
+      { f: 12, cx: this.x(12), cy: centerY + g.strH / 2 },
+    ].filter((m) => this.shows(m.f));
+  });
+
+  readonly strings = computed(() =>
+    this.tuning().strings.map((openPc, si) => ({
+      // Tab convention on the plain board: the thinnest string in lower case.
+      label: this.plain() && si === 0 ? noteName(openPc).toLowerCase() : noteName(openPc),
+      y: this.y(si),
+    })),
+  );
 
   readonly selectableDots = computed((): SelectableDot[] => {
     if (!this.selectable()) return [];
     const selected = this.selectedPositions();
     const previewSet = new Set(this.previewNotes());
     const previewRoot = this.previewRoot();
+    const { from, to } = this.span();
     return this.tuning().strings.flatMap((openPc, si) =>
-      Array.from({ length: FRETS + 1 }, (_, f) => {
+      Array.from({ length: to - from + 1 }, (_, i) => {
+        const f = from + i;
         const pc = mod12(openPc + f);
         const key = fretPositionKey(si, f);
         const label = noteName(pc);
         return {
           key,
           position: { string: si, fret: f, pc },
-          x: dotX(f),
-          y: dotY(si),
+          x: this.x(f),
+          y: this.y(si),
           label,
           selected: selected.has(key),
           inPreview: previewSet.has(pc),
@@ -191,8 +306,14 @@ export class SoloinFretboard {
     const scaleLabelByPc = new Map<Note, string>();
     scaleNotesArr.forEach((n, i) => scaleLabelByPc.set(n, scaleLabelsArr[i] ?? ''));
     const levels = this.scaleLevels();
+    const plain = this.plain();
+    const g = this.look();
     const scaleColor = (pc: Note) =>
-      levels ? `--_chords-tension-${levels[scaleNotesArr.indexOf(pc)] ?? 2}` : '--_chords-scale-note';
+      levels
+        ? `--_chords-tension-${levels[scaleNotesArr.indexOf(pc)] ?? 2}`
+        : plain && pc === scaleRootPc
+          ? '--_chords-scale-root'
+          : '--_chords-scale-note';
 
     const layers = this.chordLayers();
     const boxes = this.cagedBoxes();
@@ -200,11 +321,11 @@ export class SoloinFretboard {
     const out: RenderDot[] = [];
 
     openPitches.forEach((openPc, si) => {
-      for (let f = 0; f <= FRETS; f++) {
+      for (let f = this.span().from; f <= this.span().to; f++) {
         if (boxes.length > 0 && !boxes.some((box) => f >= box.start && f <= box.end)) continue;
         const pc = mod12(openPc + f);
-        const x = dotX(f);
-        const y = dotY(si);
+        const x = this.x(f);
+        const y = this.y(si);
 
         const matches = layers
           .map((layer) => {
@@ -218,14 +339,18 @@ export class SoloinFretboard {
             out.push({
               x,
               y,
-              r: 13 - i * 4,
+              r: g.dot - i * g.nest,
+              ring: pc === m.layer.root ? g.dot - i * g.nest + 3 : null,
               colorVar: m.layer.colorVar,
               label: i === 0 ? m.label : '',
               isRoot: pc === m.layer.root,
             });
           });
         } else if (scaleLabelByPc.has(pc)) {
-          out.push({ x, y, r: 10, colorVar: scaleColor(pc), label: scaleLabelByPc.get(pc)!, isRoot: pc === scaleRootPc });
+          const isRoot = pc === scaleRootPc;
+          // Plain: a red root needs no ring; by tension it gets the riff card's halo instead.
+          const ring = !isRoot ? null : !plain ? g.scaleDot + 3 : levels ? 15 : null;
+          out.push({ x, y, r: g.scaleDot, ring, colorVar: scaleColor(pc), label: scaleLabelByPc.get(pc)!, isRoot });
         }
       }
     });

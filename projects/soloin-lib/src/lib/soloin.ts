@@ -168,6 +168,7 @@ interface CopyText {
   colorTension: string;
   tensionLegend: [string, string, string, string];
   plainBoards: string;
+  boxBands: string;
   riffNew: string;
   riffDuplicate: string;
   riffEdit: string;
@@ -317,6 +318,7 @@ const COPY: Record<Language, CopyText> = {
     riffStatus: (name, beat, total) => `${name} · beat ${beat}/${total}`,
     riffNone: 'No riffs for this scale and box yet. Write the first one.',
     plainBoards: 'Plain fretboards',
+    boxBands: 'Box bands',
     colorLabel: 'Colour',
     colorDefault: 'Default',
     colorTension: 'Tension',
@@ -434,6 +436,7 @@ const COPY: Record<Language, CopyText> = {
     riffStatus: (name, beat, total) => `${name} · beat ${beat}/${total}`,
     riffNone: 'Aún no hay riffs para esta escala y caja. Escribe el primero.',
     plainBoards: 'Diapasones claros',
+    boxBands: 'Franjas de caja',
     colorLabel: 'Color',
     colorDefault: 'Por defecto',
     colorTension: 'Tensión',
@@ -715,8 +718,8 @@ export class SoloinComponent {
     // While Practice is actively stepping through CAGED boxes, it drives a
     // single live box instead of the manually multi-selected set.
     const liveShape = this.practiceCagedShape();
-    if (liveShape) return [cagedBoxRange(liveShape, key.root)];
-    return [...this.selectedCagedShapes()].map((shape) => cagedBoxRange(shape, key.root));
+    if (liveShape) return [{ ...cagedBoxRange(liveShape, key.root), shape: liveShape }];
+    return [...this.selectedCagedShapes()].map((shape) => ({ ...cagedBoxRange(shape, key.root), shape }));
   });
 
   readonly scaleNotes = computed<Note[]>(() => {
@@ -881,6 +884,8 @@ export class SoloinComponent {
   readonly plainBoards = signal(true);
   // With the controls folded away, the board itself says which key and scale it shows.
   readonly controlsOpen = signal(true);
+  // Optional: tint and name each selected CAGED box on the board.
+  readonly boxBands = signal(false);
   // Colour the scale by how much each note pulls against the tonic. Key and
   // Practice only: in Progression colour already says which chord a note belongs to.
   readonly colorByTension = signal(false);

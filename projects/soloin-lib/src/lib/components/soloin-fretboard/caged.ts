@@ -28,6 +28,7 @@ const BOX_WIDTH = 4; // frets spanned by a box, in addition to its starting fret
 export interface FretRange {
   start: number;
   end: number;
+  shape?: CagedShape; // which box this is, when it is one
 }
 
 // Where a given shape's box sits for a scale/chord rooted at `root`, derived

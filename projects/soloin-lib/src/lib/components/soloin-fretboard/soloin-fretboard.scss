@@ -30,14 +30,16 @@
 // tonic/first chord red; later chords keep distinct hues that read on white.
 :host(.plain) {
   --_chords-nut: #6b7280;
-  --_chords-string: #9ca3af;
-  --_chords-fret: #9ca3af;
+  // Same grey the riff card draws its strings and frets in.
+  --_chords-string: #6b7280;
+  --_chords-fret: #6b7280;
   --_chords-marker: #e5e7eb;
   --_chords-text: #1f2937;
   --_chords-muted: #6b7280;
   --_chords-on-primary: #ffffff;
   --_chords-background: #ffffff;
   --_chords-scale-note: #1f2937;
+  --_chords-scale-root: #dc2626;
   --_chords-chord-color-1: #dc2626;
   --_chords-chord-color-2: #2563eb;
   --_chords-chord-color-3: #b45309;
@@ -45,16 +47,25 @@
   --_chords-chord-color-5: #15803d;
   --_chords-chord-color-6: #be185d;
 
+  // The riff card's own frame and title.
   .fretboard-scroll {
-    padding: 10px 8px 4px;
+    padding: 14px 16px 16px;
     border: 1px solid #e5e7eb;
     border-radius: 18px;
     background: #ffffff;
   }
 
-  // The scale's root in red, as on the riff card.
-  .scale-root {
-    fill: #dc2626;
+  .caption {
+    margin: 0 0 10px;
+    padding: 0;
+    font-size: 1.05rem;
+  }
+
+  // Thirteen frets at the riff card's cell size: keep the labels legible and
+  // let the board scroll sideways rather than shrink them away.
+  .fretboard {
+    min-width: 760px;
+    overflow: visible;
   }
 }
 
@@ -79,6 +90,11 @@
   width: 100%;
   min-width: 640px;
   height: auto;
+}
+
+// Cropped to a few frets there is nothing to scroll; fill the width instead.
+:host .fretboard.cropped {
+  min-width: 0;
 }
 
 // Font, size, weight, and fill for .string-label/.fret-num/.dot-label are set as
